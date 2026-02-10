@@ -1,0 +1,286 @@
+clc;
+clear;
+close all;
+
+%% load the data
+file ='../../data/raw/NOAA/sst.mnmean.v4.nc';
+
+% Read coordinate variables
+lon = ncread(file, 'lon');
+lat = ncread(file, 'lat');
+time = ncread(file, 'time');
+sst = ncread(file, 'sst');
+
+fprintf('Data dimensions:\n');
+fprintf('  Longitude: %d points (%.1f° to %.1f°)\n', length(lon), min(lon), max(lon));
+fprintf('  Latitude: %d points (%.1f° to %.1f°)\n', length(lat), min(lat), max(lat));
+fprintf('  Time: %d months\n', length(time));
+fprintf('  SST array: %dx%dx%d\n', size(sst,1), size(sst,2), size(sst,3));
+
+% Convert time to datetime
+% Time is in "days since 1800-1-1"
+base_date = datetime(1800,1,1);
+dates = base_date + days(time);
+
+fprintf('Time range: %s to %s\n', datetime(dates(1)), datetime(dates(end)));
+
+%% 2. Clean missing data
+sst(sst < -100) = NaN;
+
+fprintf('Full dataset: %dx%dx%d (lon x lat x time)\n', size(sst,1), size(sst,2), size(sst,3));
+fprintf('Time range: %s to %s\n', datestr(dates(1)), datestr(dates(end)));
+
+%% 2. extract tropical band 
+
+% Find tropical latitudes
+tropical_idx = lat >= -23.5 & lat <= 23.5;
+lat_tropical = lat(tropical_idx);
+sst_tropical = sst(:, tropical_idx, :);
+
+fprintf('Tropical latitudes: %.1f°S to %.1f°N\n', min(lat_tropical), max(lat_tropical));
+fprintf('Tropical data: %dx%dx%d\n', size(sst_tropical,1), size(sst_tropical,2), size(sst_tropical,3));
+
+%% 3. Calc mean time series
+
+fprintf('\nCalculating tropical mean SST...\n');
+
+% avg over all tropical locations
+tropical_mean_sst = squeeze(mean(sst_tropical, [1 2], 'omitnan'));
+
+fprintf('Tropical SST range: %.2f°C to %.2f°C\n', ...
+    min(tropical_mean_sst), max(tropical_mean_sst));
+fprintf('Mean: %.2f°C, Std: %.2f°C\n', ...
+    mean(tropical_mean_sst), std(tropical_mean_sst));
+
+%% 4. Visualize time series
+
+figure('Position', [100, 100, 1400, 900]);
+
+% Full time series
+subplot(4,1,1);
+plot(dates, tropical_mean_sst, 'b-', 'LineWidth', 1.5);
+xlabel('Year');
+ylabel('Tropical Mean SST (°C)');
+title('Tropical Band Mean SST (23.5°S to 23.5°N) - Full Record');
+grid off;
+datetick('x', 'yyyy', 'keeplimits');
+
+% Since 1950
+subplot(4,1,2);
+recent_idx = year(dates) >= 1950;
+plot(dates(recent_idx), tropical_mean_sst(recent_idx), 'r-', 'LineWidth', 1.5);
+xlabel('Year');
+ylabel('Tropical Mean SST (°C)');
+title('Tropical SST (1950-2020)');
+grid off;
+datetick('x', 'yyyy', 'keeplimits');
+
+% Last 20 years
+subplot(4,1,3);
+recent20_idx = year(dates) >= 2000;
+plot(dates(recent20_idx), tropical_mean_sst(recent20_idx), 'g-', 'LineWidth', 1.5);
+xlabel('Year');
+ylabel('Tropical Mean SST (°C)');
+title('Tropical SST (2000-2020)');
+grid off;
+datetick('x', 'yyyy', 'keeplimits');
+
+% Calculate and plot trend
+t_numeric = 1:length(tropical_mean_sst);
+p = polyfit(t_numeric', tropical_mean_sst, 1);
+trend = polyval(p, t_numeric);
+
+subplot(4,1,4);
+hold on;
+plot(dates, tropical_mean_sst, 'b-', 'LineWidth', 1);
+plot(dates, trend, 'r--', 'LineWidth', 2);
+xlabel('Year');
+ylabel('Tropical Mean SST (°C)');
+title('Tropical SST with Linear Trend');
+legend('Actual', sprintf('Trend: %.4f°C/month = %.2f°C/century', p(1), p(1)*12*100), ...
+    'Location', 'northwest');
+grid off;
+datetick('x', 'yyyy', 'keeplimits');
+
+fprintf('\nLinear trend: %.4f°C per month (%.2f°C per century)\n', p(1), p(1)*12*100);
+
+%% 5. ACF/PACF analysis
+
+% Convert to double (data is single precision from NetCDF)
+y = double(tropical_mean_sst);
+
+figure('Position', [100, 100, 1200, 800]);
+
+subplot(3,1,1);
+plot(y, 'b-', 'LineWidth', 1);
+xlabel('Month Index');
+ylabel('SST (°C)');
+title('Tropical SST Time Series');
+grid off;
+
+subplot(3,1,2);
+autocorr(y);
+title('Autocorrelation Function (ACF)');
+
+subplot(3,1,3);
+parcorr(y);
+title('Partial Autocorrelation Function (PACF)');
+
+
+%% 7. ARIMA MODELING WOOOO
+
+fprintf('\nARIMA MODELING\n');
+
+% Try different ARIMA models
+fprintf('\nFitting ARIMA models!\n');
+
+% ARIMA(1,1,1)
+fprintf('1. ARIMA(1,1,1):\n');
+model1 = arima(1, 1, 1);
+fit1 = estimate(model1, y, 'Display', 'off');
+
+% ARIMA(2,1,1)
+fprintf('2. ARIMA(2,1,1):\n');
+model2 = arima(2, 1, 1);
+fit2 = estimate(model2, y, 'Display', 'off');
+
+% ARIMA(1,1,2)
+fprintf('3. ARIMA(1,1,2):\n');
+model3 = arima(1, 1, 2);
+fit3 = estimate(model3, y, 'Display', 'off');
+
+% ARIMA(2,1,2)
+fprintf('4. ARIMA(2,1,2):\n');
+model4 = arima(2, 1, 2);
+fit4 = estimate(model4, y, 'Display', 'off');
+
+% Compare AIC
+aic1 = summarize(fit1).AIC;
+aic2 = summarize(fit2).AIC;
+aic3 = summarize(fit3).AIC;
+aic4 = summarize(fit4).AIC;
+
+fprintf('\nModel Comparison (AIC - lower is better):\n');
+fprintf('  ARIMA(1,1,1): %.2f\n', aic1);
+fprintf('  ARIMA(2,1,1): %.2f\n', aic2);
+fprintf('  ARIMA(1,1,2): %.2f\n', aic3);
+fprintf('  ARIMA(2,1,2): %.2f\n', aic4);
+
+% Select best model
+[~, best_idx] = min([aic1, aic2, aic3, aic4]);
+models = {fit1, fit2, fit3, fit4};
+model_names = {'ARIMA(1,1,1)', 'ARIMA(2,1,1)', 'ARIMA(1,1,2)', 'ARIMA(2,1,2)'};
+best_fit = models{best_idx};
+
+fprintf('\nBest model: %s (AIC = %.2f)\n', model_names{best_idx}, min([aic1, aic2, aic3, aic4]));
+disp(best_fit);
+
+%% 8. forcasting
+
+% Forecast 24 months ahead (2 years)
+numPeriods = 24;
+[yF, yMSE] = forecast(best_fit, numPeriods, 'Y0', y);
+
+% Create future dates (ensure column vector)
+last_date = dates(end);
+future_dates = last_date + calmonths(1:numPeriods)';
+
+% Confidence intervals
+yF_upper = yF + 1.96*sqrt(yMSE);
+yF_lower = yF - 1.96*sqrt(yMSE);
+
+% Plot forecast
+figure('Position', [100, 100, 1400, 700]);
+
+% Show last 10 years + forecast
+plot_start = find(year(dates) >= year(dates(end))-10, 1);
+
+hold on;
+plot(dates(plot_start:end), y(plot_start:end), 'b-', 'LineWidth', 2, 'DisplayName', 'Historical');
+plot(future_dates, yF, 'r-', 'LineWidth', 2, 'DisplayName', 'Forecast');
+fill([future_dates; flipud(future_dates)], ...
+     [yF_upper; flipud(yF_lower)], ...
+     'r', 'FaceAlpha', 0.2, 'EdgeColor', 'none', 'DisplayName', '95% CI');
+
+xlabel('Date');
+ylabel('Tropical Mean SST (°C)');
+title(sprintf('Tropical SST Forecast - %s Model', model_names{best_idx}));
+legend('Location', 'northwest');
+grid on;
+datetick('x', 'yyyy', 'keeplimits');
+
+fprintf('\n24-Month Forecast:\n');
+for i = 1:numPeriods
+    fprintf('  %s: %.2f ± %.2f°C\n', datestr(future_dates(i), 'mmm-yyyy'), ...
+        yF(i), 1.96*sqrt(yMSE(i)));
+end
+
+%% 9. residual diagnostics
+
+fprintf('\n--- RESIDUAL DIAGNOSTICS ---\n');
+
+% Convert residuals to double
+res = double(infer(best_fit, y));
+
+figure('Position', [100, 100, 1400, 800]);
+
+% Residuals over time
+subplot(2,3,1);
+plot(dates, res, 'k-', 'LineWidth', 0.5);
+xlabel('Date');
+ylabel('Residuals (°C)');
+title('Residuals Over Time');
+grid on;
+yline(0, 'r--');
+datetick('x', 'yyyy', 'keeplimits');
+
+% Histogram
+subplot(2,3,2);
+histogram(res, 50, 'Normalization', 'pdf', 'FaceColor', [0.6 0.6 0.6]);
+hold on;
+x_res = linspace(min(res), max(res), 100);
+y_norm = normpdf(x_res, mean(res), std(res));
+plot(x_res, y_norm, 'r-', 'LineWidth', 2);
+xlabel('Residuals (°C)');
+ylabel('Density');
+title('Residual Distribution');
+legend('Residuals', 'Normal');
+grid on;
+
+% Q-Q plot
+subplot(2,3,3);
+qqplot(res);
+title('Q-Q Plot of Residuals');
+
+% ACF of residuals
+subplot(2,3,4);
+autocorr(res);
+title('Residual ACF');
+
+% PACF of residuals
+subplot(2,3,5);
+parcorr(res);
+title('Residual PACF');
+
+% Statistics
+subplot(2,3,6);
+axis off;
+text(0.1, 0.9, 'Residual Statistics:', 'FontSize', 12, 'FontWeight', 'bold');
+text(0.1, 0.75, sprintf('Mean: %.4f°C', mean(res)), 'FontSize', 10);
+text(0.1, 0.65, sprintf('Std Dev: %.4f°C', std(res)), 'FontSize', 10);
+text(0.1, 0.55, sprintf('Min: %.4f°C', min(res)), 'FontSize', 10);
+text(0.1, 0.45, sprintf('Max: %.4f°C', max(res)), 'FontSize', 10);
+
+% Ljung-Box test for white noise
+[h, pValue] = lbqtest(res, 'Lags', 20);
+text(0.1, 0.30, 'Ljung-Box Test (20 lags):', 'FontSize', 10);
+text(0.1, 0.20, sprintf('p-value: %.4f', pValue), 'FontSize', 10);
+if h == 0
+    text(0.1, 0.10, 'Result: White noise ✓', 'FontSize', 10, 'Color', 'g');
+else
+    text(0.1, 0.10, 'Result: Autocorrelation detected', 'FontSize', 10, 'Color', 'r');
+end
+
+fprintf('Residual mean: %.4f°C\n', mean(res));
+fprintf('Residual std: %.4f°C\n', std(res));
+fprintf('Ljung-Box p-value: %.4f\n', pValue);
