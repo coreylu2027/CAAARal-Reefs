@@ -127,67 +127,98 @@ parcorr(y);
 title('Partial Autocorrelation Function (PACF)');
 
 
-%% 7. ARIMA MODELING WOOOO
+%% 7. arima modeling
 
-fprintf('\nARIMA MODELING\n');
+fprintf('\n ARIMA MODELING WITH TREND \n');
 
-% Try different ARIMA models
-fprintf('\nFitting ARIMA models!\n');
+% First, detrend the data
+t_numeric = (1:length(y))';
+p_trend = polyfit(t_numeric, y, 1);
+trend_component = polyval(p_trend, t_numeric);
+y_detrended = y - trend_component;
 
-% ARIMA(1,1,1)
-fprintf('1. ARIMA(1,1,1):\n');
-model1 = arima(1, 1, 1);
-fit1 = estimate(model1, y, 'Display', 'off');
+fprintf('Trend removed: %.6f°C per month\n', p_trend(1));
+fprintf('This equals %.4f°C per year or %.2f°C per century\n', ...
+    p_trend(1)*12, p_trend(1)*12*100);
 
-% ARIMA(2,1,1)
-fprintf('2. ARIMA(2,1,1):\n');
-model2 = arima(2, 1, 1);
-fit2 = estimate(model2, y, 'Display', 'off');
+% Try different ARIMA models on DETRENDED data
+fprintf('\nFitting ARIMA models to detrended data:\n');
 
-% ARIMA(1,1,2)
-fprintf('3. ARIMA(1,1,2):\n');
-model3 = arima(1, 1, 2);
-fit3 = estimate(model3, y, 'Display', 'off');
+% ARIMA(1,0,1) - no differencing since we already detrended
+fprintf('1. ARIMA(1,0,1):\n');
+model1 = arima(1, 0, 1);
+fit1 = estimate(model1, y_detrended, 'Display', 'off');
 
-% ARIMA(2,1,2)
-fprintf('4. ARIMA(2,1,2):\n');
-model4 = arima(2, 1, 2);
-fit4 = estimate(model4, y, 'Display', 'off');
+% ARIMA(2,0,1)
+fprintf('2. ARIMA(2,0,1):\n');
+model2 = arima(2, 0, 1);
+fit2 = estimate(model2, y_detrended, 'Display', 'off');
+
+% ARIMA(1,0,2)
+fprintf('3. ARIMA(1,0,2):\n');
+model3 = arima(1, 0, 2);
+fit3 = estimate(model3, y_detrended, 'Display', 'off');
+
+% ARIMA(2,0,2)
+fprintf('4. ARIMA(2,0,2):\n');
+model4 = arima(2, 0, 2);
+fit4 = estimate(model4, y_detrended, 'Display', 'off');
+
+% Also try with seasonal component (12-month cycle)
+fprintf('5. SARIMA(1,0,1)x(1,0,1,12):\n');
+model5 = arima('ARLags', 1, 'MALags', 1, ...
+               'SARLags', 12, 'SMALags', 12);
+fit5 = estimate(model5, y_detrended, 'Display', 'off');
 
 % Compare AIC
 aic1 = summarize(fit1).AIC;
 aic2 = summarize(fit2).AIC;
 aic3 = summarize(fit3).AIC;
 aic4 = summarize(fit4).AIC;
+aic5 = summarize(fit5).AIC;
 
 fprintf('\nModel Comparison (AIC - lower is better):\n');
-fprintf('  ARIMA(1,1,1): %.2f\n', aic1);
-fprintf('  ARIMA(2,1,1): %.2f\n', aic2);
-fprintf('  ARIMA(1,1,2): %.2f\n', aic3);
-fprintf('  ARIMA(2,1,2): %.2f\n', aic4);
+fprintf('  ARIMA(1,0,1): %.2f\n', aic1);
+fprintf('  ARIMA(2,0,1): %.2f\n', aic2);
+fprintf('  ARIMA(1,0,2): %.2f\n', aic3);
+fprintf('  ARIMA(2,0,2): %.2f\n', aic4);
+fprintf('  SARIMA(1,0,1)x(1,0,1,12): %.2f\n', aic5);
 
 % Select best model
-[~, best_idx] = min([aic1, aic2, aic3, aic4]);
-models = {fit1, fit2, fit3, fit4};
-model_names = {'ARIMA(1,1,1)', 'ARIMA(2,1,1)', 'ARIMA(1,1,2)', 'ARIMA(2,1,2)'};
+[~, best_idx] = min([aic1, aic2, aic3, aic4, aic5]);
+models = {fit1, fit2, fit3, fit4, fit5};
+model_names = {'ARIMA(1,0,1)', 'ARIMA(2,0,1)', 'ARIMA(1,0,2)', ...
+               'ARIMA(2,0,2)', 'SARIMA(1,0,1)x(1,0,1,12)'};
 best_fit = models{best_idx};
 
-fprintf('\nBest model: %s (AIC = %.2f)\n', model_names{best_idx}, min([aic1, aic2, aic3, aic4]));
+fprintf('\nBest model: %s (AIC = %.2f)\n', model_names{best_idx}, ...
+    min([aic1, aic2, aic3, aic4, aic5]));
 disp(best_fit);
 
-%% 8. forcasting
+%% 8. Forcasting with trend re-added
 
 % Forecast 240 months ahead (20 years)
 numPeriods = 240;
-[yF, yMSE] = forecast(best_fit, numPeriods, 'Y0', y);
 
-% Create future dates (ensure column vector)
-last_date = dates(end);
-future_dates = last_date + calmonths(1:numPeriods)';
+% Forecast the detrended component
+[yF_detrended, yMSE] = forecast(best_fit, numPeriods, 'Y0', y_detrended);
 
-% Confidence intervals
+% Create future time indices and dates
+last_time_idx = length(y);
+future_time_idx = (last_time_idx + 1):(last_time_idx + numPeriods);
+future_time_idx = future_time_idx';
+
+% Add the trend back to get actual forecasts
+trend_future = polyval(p_trend, future_time_idx);
+yF = yF_detrended + trend_future;
+
+% Confidence intervals (trend adds no uncertainty, only ARIMA does)
 yF_upper = yF + 1.96*sqrt(yMSE);
 yF_lower = yF - 1.96*sqrt(yMSE);
+
+% Create future dates
+last_date = dates(end);
+future_dates = last_date + calmonths(1:numPeriods)';
 
 % Plot forecast
 figure('Position', [100, 100, 1400, 700]);
@@ -202,25 +233,37 @@ fill([future_dates; flipud(future_dates)], ...
      [yF_upper; flipud(yF_lower)], ...
      'r', 'FaceAlpha', 0.2, 'EdgeColor', 'none', 'DisplayName', '95% CI');
 
+% Also plot the linear trend line for reference
+trend_all = polyval(p_trend, [plot_start:length(y), future_time_idx']');
+dates_all = [dates(plot_start:end); future_dates];
+plot(dates_all, trend_all, 'k--', 'LineWidth', 1, 'DisplayName', 'Linear Trend');
+
 xlabel('Date');
 ylabel('Tropical Mean SST (°C)');
-title(sprintf('Tropical SST Forecast - %s Model', model_names{best_idx}));
+title(sprintf('Tropical SST Forecast - %s Model + Linear Trend', model_names{best_idx}));
 legend('Location', 'northwest');
-grid off;
+grid on;
 datetick('x', 'yyyy', 'keeplimits');
 
-fprintf('\n24-Month Forecast:\n');
-for i = 1:numPeriods
-    fprintf('  %s: %.2f ± %.2f°C\n', datestr(future_dates(i), 'mmm-yyyy'), ...
-        yF(i), 1.96*sqrt(yMSE(i)));
-end
+fprintf('\nForecast Summary (selected periods):\n');
+fprintf('  %s: %.2f ± %.2f°C\n', datestr(future_dates(12), 'mmm-yyyy'), ...
+    yF(12), 1.96*sqrt(yMSE(12)));
+fprintf('  %s: %.2f ± %.2f°C\n', datestr(future_dates(60), 'mmm-yyyy'), ...
+    yF(60), 1.96*sqrt(yMSE(60)));
+fprintf('  %s: %.2f ± %.2f°C\n', datestr(future_dates(120), 'mmm-yyyy'), ...
+    yF(120), 1.96*sqrt(yMSE(120)));
+fprintf('  %s: %.2f ± %.2f°C\n', datestr(future_dates(240), 'mmm-yyyy'), ...
+    yF(240), 1.96*sqrt(yMSE(240)));
+
+fprintf('\nProjected temperature increase over 20 years: %.2f°C\n', ...
+    yF(240) - y(end));
 
 %% 9. residual diagnostics
 
-fprintf('\nresidual diagnostics\n');
+fprintf('\n RESIDUAL DIAGNOSTICS \n');
 
-% Convert residuals to double
-res = double(infer(best_fit, y));
+% Get residuals from the detrended model
+res = double(infer(best_fit, y_detrended));
 
 figure('Position', [100, 100, 1400, 800]);
 
@@ -230,7 +273,7 @@ plot(dates, res, 'k-', 'LineWidth', 0.5);
 xlabel('Date');
 ylabel('Residuals (°C)');
 title('Residuals Over Time');
-grid off;
+grid on;
 yline(0, 'r--');
 datetick('x', 'yyyy', 'keeplimits');
 
@@ -245,7 +288,7 @@ xlabel('Residuals (°C)');
 ylabel('Density');
 title('Residual Distribution');
 legend('Residuals', 'Normal');
-grid off;
+grid on;
 
 % Q-Q plot
 subplot(2,3,3);
@@ -284,3 +327,13 @@ end
 fprintf('Residual mean: %.4f°C\n', mean(res));
 fprintf('Residual std: %.4f°C\n', std(res));
 fprintf('Ljung-Box p-value: %.4f\n', pValue);
+
+%% 10. export forcast data
+
+% Create output table
+forecast_table = table(future_dates, yF, yF_lower, yF_upper, sqrt(yMSE), ...
+    'VariableNames', {'Date', 'Forecast_SST', 'Lower_95CI', 'Upper_95CI', 'Std_Error'});
+
+% Save to CSV
+writetable(forecast_table, 'tropical_sst_forecast.csv');
+fprintf('\nForecast data saved to: tropical_sst_forecast.csv\n');

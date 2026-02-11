@@ -8,3 +8,4 @@ data/raw/CORIS_DATA/ATLANTIC/FLORIDA/CRCP_Coral_Demographic_Survey_Florida_4525_
 data/raw/CORIS_DATA/ATLANTIC/PUERTO_RICO/CRCP_Benthic_Cover_Puerto_Rico_07c6_3c17_78b6.csv filter=lfs diff=lfs merge=lfs -text
 data/raw/CORIS_DATA/ATLANTIC/PUERTO_RICO/CRCP_Coral_Demographic_Survey_Puerto_Rico_7deb_d2d3_0213.csv filter=lfs diff=lfs merge=lfs -text
 data/raw/CORIS_DATA/ATLANTIC/USVI/CRCP_Benthic_Cover_USVI_6400_ac60_8c98.csv filter=lfs diff=lfs merge=lfs -text
+*.zip filter=lfs diff=lfs merge=lfs -text
