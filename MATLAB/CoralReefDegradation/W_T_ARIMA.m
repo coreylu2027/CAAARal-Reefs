@@ -3,28 +3,58 @@ clear;
 close all;
 
 %% ── Publication figure defaults ─────────────────────────────────────────
-set(groot, 'defaultAxesColor',        'w');
-set(groot, 'defaultFigureColor',      'w');
-set(groot, 'defaultAxesBox',          'off');
-set(groot, 'defaultAxesXGrid',        'off');
-set(groot, 'defaultAxesYGrid',        'off');
-set(groot, 'defaultAxesFontName',     'Helvetica');
-set(groot, 'defaultAxesFontSize',     11);
-set(groot, 'defaultAxesFontColor',    'k');
-set(groot, 'defaultAxesXColor',       'k');
-set(groot, 'defaultAxesYColor',       'k');
-set(groot, 'defaultAxesZColor',       'k');
-set(groot, 'defaultAxesLineWidth',    0.8);
-set(groot, 'defaultTextFontName',     'Helvetica');
-set(groot, 'defaultTextColor',        'k');
-set(groot, 'defaultLegendBox',        'off');
-set(groot, 'defaultLegendTextColor',  'k');
-set(groot, 'defaultLegendFontSize',   10);
+set(groot, 'defaultAxesColor',       'w');
+set(groot, 'defaultFigureColor',     'w');
+set(groot, 'defaultAxesBox',         'off');
+set(groot, 'defaultAxesXGrid',       'off');
+set(groot, 'defaultAxesYGrid',       'off');
+set(groot, 'defaultAxesFontName',    'Helvetica');
+set(groot, 'defaultAxesFontSize',    11);
+set(groot, 'defaultAxesXColor',      'k');
+set(groot, 'defaultAxesYColor',      'k');
+set(groot, 'defaultAxesZColor',      'k');
+set(groot, 'defaultAxesLineWidth',   0.8);
+set(groot, 'defaultAxesTickDir',     'out');
+set(groot, 'defaultTextFontName',    'Helvetica');
+set(groot, 'defaultTextColor',       'k');
+set(groot, 'defaultLegendBox',       'off');
+set(groot, 'defaultLegendTextColor', 'k');
+set(groot, 'defaultLegendFontSize',  10);
 
 BLUE  = [0.13 0.39 0.68];
 RED   = [0.80 0.17 0.17];
 GREEN = [0.13 0.60 0.32];
 LGRAY = [0.85 0.85 0.85];
+
+%% ── Helper: scrub every axes in a figure to be publication-clean ─────────
+%   Fixes box, grid, tick direction, colors, and font on all axes and text
+%   objects, including those created internally by autocorr/parcorr/qqplot.
+function cleanAxes(fig)
+    axList = findall(fig, 'Type', 'axes');
+    for k = 1:numel(axList)
+        ax = axList(k);
+        set(ax, ...
+            'Box',       'off', ...
+            'XGrid',     'off', ...
+            'YGrid',     'off', ...
+            'ZGrid',     'off', ...
+            'TickDir',   'out', ...
+            'XColor',    'k',   ...
+            'YColor',    'k',   ...
+            'ZColor',    'k',   ...
+            'Color',     'w',   ...
+            'FontName',  'Helvetica', ...
+            'FontSize',  11,    ...
+            'LineWidth', 0.8);
+    end
+    txtList = findall(fig, 'Type', 'text');
+    set(txtList, 'Color', 'k', 'FontName', 'Helvetica');
+    legList = findall(fig, 'Type', 'legend');
+    for k = 1:numel(legList)
+        set(legList(k), 'Box', 'off', 'TextColor', 'k');
+    end
+    set(fig, 'Color', 'w');
+end
 
 %% ── Load data ────────────────────────────────────────────────────────────
 file = '../../data/raw/NOAA/sst.mnmean.v4.nc';
@@ -59,26 +89,6 @@ tropical_mean_sst = squeeze(mean(sst_tropical, [1 2], 'omitnan'));
 
 fprintf('Tropical SST range: %.2f to %.2f deg C\n', min(tropical_mean_sst), max(tropical_mean_sst));
 fprintf('Mean: %.2f deg C,  Std: %.2f deg C\n', mean(tropical_mean_sst), std(tropical_mean_sst));
-
-%% ── Helper: scrub every axes in a figure to be publication-clean ─────────
-%   Fixes box, grid, tick direction, colors, and font on all axes and text
-%   objects, including those created internally by autocorr/parcorr/qqplot.
-function cleanAxes(fig)
-    axList = findall(fig, 'Type', 'axes');
-    for k = 1:numel(axList)
-        ax = axList(k);
-        set(ax, 'Box','off', 'XGrid','off', 'YGrid','off', ...
-            'TickDir','out', 'XColor','k', 'YColor','k', 'ZColor','k', ...
-            'FontName','Helvetica', 'FontSize',11, 'Color','w');
-    end
-    txtList = findall(fig, 'Type', 'text');
-    set(txtList, 'Color','k', 'FontName','Helvetica');
-    legList = findall(fig, 'Type', 'legend');
-    for k = 1:numel(legList)
-        set(legList(k), 'Box','off', 'TextColor','k');
-    end
-    set(fig, 'Color', 'w');
-end
 
 %% ── Figure 1 · Time series overview ─────────────────────────────────────
 fig1 = figure('Position', [100 100 1400 900]);
