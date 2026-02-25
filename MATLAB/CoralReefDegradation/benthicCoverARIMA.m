@@ -416,7 +416,7 @@ cleanFig(fig2);
 % ═════════════════════════════════════════════════════════════════════════
 fprintf('\nARIMA / SARIMA model selection\n%s\n', repmat('-',1,50));
 
-forecast_horizon = 6;
+forecast_horizon = 26;
 
 % Explicit lag vectors avoid ambiguity in MATLAB's arima constructor.
 % Seasonal lags at periods 4 and 5 yr target ENSO-scale cycles; these
