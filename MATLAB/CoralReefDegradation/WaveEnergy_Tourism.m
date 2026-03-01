@@ -241,7 +241,7 @@ C_ref      = A0;
 D_max      = 850e6;             % Max coastal defence cost [$]
 lambda_dmg = 2.5;
 
-r_disc     = 0.03;              % Social discount rate
+r_disc     = 0.015;              % Social discount rate
 
 % ═══════════════════════════════════════════════════════════════════════════
 %  C. COMPUTE LOSSES

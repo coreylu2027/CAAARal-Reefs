@@ -29,8 +29,6 @@ CLR_TREND   = [0.30 0.30 0.30];
 CLR_LGRAY   = [0.88 0.88 0.88];
 
 % ── Styling helper ────────────────────────────────────────────────────────
-% Runs after each figure to clean up axes that autocorr / parcorr / qqplot
-% create internally and that don't inherit root defaults properly.
 function cleanFig(fig)
     for ax = findall(fig, 'Type', 'axes')'
         set(ax, 'Box','off', 'XGrid','off', 'YGrid','off', ...
@@ -59,10 +57,6 @@ end
 % ═════════════════════════════════════════════════════════════════════════
 % 1.  LOAD DATA
 % ═════════════════════════════════════════════════════════════════════════
-% All columns read as strings to avoid type conflicts across regions.
-% MPA_NR is numeric in Florida files but a character field elsewhere, for
-% example. Numeric casting happens after the full stack is assembled below.
-
 pwd
 folderPath = '../../data/raw/CORIS_DATA/';
 files = dir(fullfile(folderPath, '**', '*Benthic*'));
@@ -78,8 +72,6 @@ for f = 1:length(files)
     fpath = fullfile(files(f).folder, files(f).name);
     try
         tbl = readtable(fpath, 'VariableNamingRule','preserve', 'TextType','string');
-        % Some files have a units row directly under the header. YEAR won't
-        % parse as a number there, so drop it before stacking.
         if height(tbl) > 0 && ismember('YEAR', tbl.Properties.VariableNames)
             if isnan(str2double(tbl.YEAR(1)))
                 tbl(1,:) = [];
@@ -150,8 +142,6 @@ sponge_codes = ["SPO OTHE","CLI SPE."];
 % ═════════════════════════════════════════════════════════════════════════
 % 2.  BUILD TRANSECT TABLE
 % ═════════════════════════════════════════════════════════════════════════
-% Rows with NaN years come from malformed or partially-read files. Remove
-% them before building IDs or unique() produces phantom transects.
 data_all  = data_all(~isnan(data_all.YEAR), :);
 col_names = data_all.Properties.VariableNames;
 n_rows    = height(data_all);
@@ -206,8 +196,29 @@ T = struct( ...
     'habitat',     strings(n_transects,1), ...
     'zone',        strings(n_transects,1));
 
+% ── FIX: ensure HARDBOTTOM_P is numeric after all filtering ───────────────
+if ismember('HARDBOTTOM_P', data_all.Properties.VariableNames)
+    if ~isnumeric(data_all.HARDBOTTOM_P)
+        data_all.HARDBOTTOM_P = str2double(data_all.HARDBOTTOM_P);
+    end
+end
+
+% ── FIX: trim whitespace from category codes before matching ─────────────
+if ismember('COVER_CAT_CD', data_all.Properties.VariableNames)
+    data_all.COVER_CAT_CD = strtrim(data_all.COVER_CAT_CD);
+end
+
 hb_col  = data_all.HARDBOTTOM_P;
 cat_col = data_all.COVER_CAT_CD;
+
+% ── DIAGNOSTIC: print unique category codes to verify matching ───────────
+unique_cats = unique(cat_col);
+fprintf('\nUnique COVER_CAT_CD values (%d total, first 50 shown):\n', length(unique_cats));
+disp(unique_cats(1:min(50,end)));
+
+% Check how many rows match coral codes
+n_coral_rows = sum(ismember(cat_col, hard_coral_codes));
+fprintf('Rows matching hard_coral_codes: %d / %d\n', n_coral_rows, length(cat_col));
 
 for i = 1:n_transects
     rows = find(transect_id == unique_transects(i));
@@ -303,12 +314,18 @@ scatter(transect_tbl.algae, transect_tbl.hard_coral, 18, transect_tbl.year, ...
 colormap(ax3, parula);
 cb = colorbar; cb.Label.String = 'Year'; cb.Color = 'k';
 hold on;
-xr = linspace(0, max(transect_tbl.algae), 100);
-plot(xr, polyval(polyfit(transect_tbl.algae, transect_tbl.hard_coral,1), xr), ...
-    '--', 'Color',CLR_FCST, 'LineWidth',1.5);
-r_corr = corr(transect_tbl.algae, transect_tbl.hard_coral, 'rows','complete');
-text(0.05, 0.92, sprintf('r = %.3f', r_corr), 'Units','normalized', ...
-    'FontSize',10, 'Color','k');
+% ── FIX: guard polyfit against degenerate (all-zero) data ────────────────
+if std(transect_tbl.algae) > 0 && std(transect_tbl.hard_coral) > 0
+    xr = linspace(0, max(transect_tbl.algae), 100);
+    plot(xr, polyval(polyfit(transect_tbl.algae, transect_tbl.hard_coral,1), xr), ...
+        '--', 'Color',CLR_FCST, 'LineWidth',1.5);
+    r_corr = corr(transect_tbl.algae, transect_tbl.hard_coral, 'rows','complete');
+    text(0.05, 0.92, sprintf('r = %.3f', r_corr), 'Units','normalized', ...
+        'FontSize',10, 'Color','k');
+else
+    text(0.05, 0.92, 'r = N/A (zero variance)', 'Units','normalized', ...
+        'FontSize',10, 'Color','k');
+end
 xlabel('Algae Cover (%)'); ylabel('Hard Coral Cover (%)');
 title('Coral vs. Algae');
 
@@ -406,22 +423,11 @@ cleanFig(fig2);
 
 % ═════════════════════════════════════════════════════════════════════════
 % 6.  ARIMA / SARIMA MODEL SELECTION
-%
-%     Candidates include standard ARMA structures and seasonal models at
-%     periods 4 and 5 years, roughly matching ENSO recurrence. All models
-%     are fit on the linearly detrended series; the trend is re-added when
-%     constructing the final forecast. Selection by AIC; BIC also reported.
-%     Short series may prevent seasonal models from converging — failures
-%     are caught and excluded from the comparison table.
 % ═════════════════════════════════════════════════════════════════════════
 fprintf('\nARIMA / SARIMA model selection\n%s\n', repmat('-',1,50));
 
 forecast_horizon = 26;
 
-% Explicit lag vectors avoid ambiguity in MATLAB's arima constructor.
-% Seasonal lags at periods 4 and 5 yr target ENSO-scale cycles; these
-% are only added to the grid and not forced — AIC determines whether they
-% beat the simpler structures on this particular series.
 model_defs = { ...
     arima('ARLags',1,     'D',0),              'AR(1)';
     arima('MALags',1,     'D',0),              'MA(1)';
@@ -508,13 +514,6 @@ end
 
 % ═════════════════════════════════════════════════════════════════════════
 % 7.  SARIMAX  (algae as exogenous predictor)
-%
-%     regARIMA models with standardised algae cover as exogenous input.
-%     AR(1) and MA(1) error structures are always tried. Seasonal error
-%     structures at periods 4 and 5 are added when the series has at least
-%     8 observations, since they require enough data to identify the
-%     seasonal parameters without collapsing. Algae is projected forward
-%     via linear extrapolation over the forecast window.
 % ═════════════════════════════════════════════════════════════════════════
 fprintf('\nSARIMAX (algae exogenous)\n%s\n', repmat('-',1,50));
 
@@ -558,7 +557,6 @@ try
     fprintf('\n  Selected: %s   AIC = %.3f\n', best_sx_name, best_aic_sx);
     fprintf('  Algae coefficient: %.4f\n', best_sarimax.Beta);
 
-    % Project algae linearly over the forecast window
     p_alg            = polyfit((1:length(y_algae_annual))', y_algae_annual, 1);
     future_t_alg     = (length(y_algae_annual)+1 : length(y_algae_annual)+forecast_horizon)';
     alg_forecast_raw = polyval(p_alg, future_t_alg);
@@ -687,7 +685,6 @@ for s = 1:length(model_regions)
         strtrim(rname), length(sub_years), mean(y_reg), p_reg(1));
 
     try
-        % Candidate set scales with series length to stay identifiable.
         if length(y_reg) >= 8
             reg_defs = { ...
                 arima('ARLags',1,'MALags',1,'D',0),                            'ARMA(1,1)';
@@ -777,6 +774,13 @@ top_species_names = {'O. faveolata','S. siderea','M. cavernosa','P. astreoides',
                      'Millepora spp.','S. radians'};
 
 spp_annual = zeros(length(top_species), length(years_all));
+
+% ── FIX: re-trim COVER_CAT_CD on original data_all for species lookup ─────
+if ~isnumeric(data_all.HARDBOTTOM_P)
+    data_all.HARDBOTTOM_P = str2double(data_all.HARDBOTTOM_P);
+end
+data_all.COVER_CAT_CD = strtrim(data_all.COVER_CAT_CD);
+
 for sp = 1:length(top_species)
     sp_rows = (data_all.COVER_CAT_CD == top_species(sp));
     for y = 1:length(years_all)
