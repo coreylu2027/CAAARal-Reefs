@@ -1,4 +1,4 @@
 .DS_STORE
-/data/raw_large/
 .idea/
 ._*
+/data/
