@@ -2,7 +2,7 @@
 
 This repository contains the code, notebooks, data products, and figures for the CAAARal Reefs project.
 
-For MTFC math modelling competition judges, the main point to know is that this project uses Git LFS for large files, but it also includes Google Drive download scripts in case Git LFS is unavailable or incomplete on your machine.
+For MTFC math modelling competition judges, the main point to know is that this project uses Git LFS for large files, but it also includes Google Drive download scripts in case Git LFS is unavailable or incomplete on your machine. Python dependencies for the notebooks and download scripts are listed in `requirements.txt`.
 
 ## Repository layout
 
@@ -34,6 +34,12 @@ git lfs pull
 
 If Git LFS completes successfully, the repository should contain the large CSV and ZIP assets required by the project.
 
+4. Install the Python dependencies used by the notebooks and download helpers:
+
+```bash
+python3 -m pip install -r requirements.txt
+```
+
 ## Option 2: Clone normally and use the Google Drive download scripts
 
 Use this if:
@@ -45,7 +51,7 @@ Use this if:
 ### Prerequisites
 
 - Git
-- Python 3.6 or newer for the download scripts
+- Python 3
 - `pip`
 
 ### Setup
@@ -57,10 +63,10 @@ git clone <REPO_URL>
 cd CAAARal-Reefs
 ```
 
-2. Install the download dependency:
+2. Install the Python dependencies:
 
 ```bash
-python3 -m pip install gdown
+python3 -m pip install -r requirements.txt
 ```
 
 3. Run the recommended data download script:
@@ -107,7 +113,7 @@ If those folders contain actual datasets rather than Git LFS pointer text, the p
 
 ## Reproducing the project
 
-After the data is present, judges can inspect the project through:
+After the data is present and `requirements.txt` has been installed, judges can inspect the project through:
 
 - Jupyter notebooks in `notebooks/cleaning/` and `notebooks/analysis/`
 - MATLAB code in `MATLAB/`
@@ -120,7 +126,7 @@ For MTFC judges, the simplest workflow is:
 ```bash
 git clone <REPO_URL>
 cd CAAARal-Reefs
-python3 -m pip install gdown
+python3 -m pip install -r requirements.txt
 python3 scripts/download_necessary_data.py
 ```
 
