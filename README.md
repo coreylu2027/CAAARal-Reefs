@@ -45,7 +45,7 @@ Use this if:
 ### Prerequisites
 
 - Git
-- Python 3.10 or newer
+- Python 3.6 or newer for the download scripts
 - `pip`
 
 ### Setup
