@@ -28,8 +28,8 @@ tour[mask] = 220.5 - (220.5 - tour_anchor[-1]) * np.exp(-k * (years[mask] - 2050
 
 direct_total = wave + tour
 
-                                                                                                       
-fishery_total_2100 = 4012.42                 
+# Inferred fishery annual path only for visualization, constrained to paper's cumulative $4.01B by 2100
+fishery_total_2100 = 4012.42  # $M cumulative
 mid, steep = 2055, 0.12
 cum_fish = 1 / (1 + np.exp(-steep * (years - mid)))
 cum_fish = (cum_fish - cum_fish[0]) / (cum_fish[-1] - cum_fish[0]) * fishery_total_2100
@@ -46,7 +46,9 @@ loss_df = pd.DataFrame({
 csv_path = outdir / "coral_cascade_losses_2024_2100.csv"
 loss_df.to_csv(csv_path, index=False)
 
-                               
+# -----------------------------
+# 2) Build the NetworkX cascade
+# -----------------------------
 G = nx.DiGraph()
 
 nodes = {
@@ -198,7 +200,9 @@ layer_headers = {
     6: "Macro Spillovers",
 }
 
-                               
+# -----------------------------
+# 3) Render poster-style figure
+# -----------------------------
 fig = plt.figure(figsize=(22, 18), dpi=200)
 gs = fig.add_gridspec(2, 1, height_ratios=[3.8, 1.4], hspace=0.06)
 
@@ -206,7 +210,7 @@ ax = fig.add_subplot(gs[0])
 fig.patch.set_facecolor("#081421")
 ax.set_facecolor("#081421")
 
-                        
+# Subtle background glow
 x = np.linspace(-1, 1, 700)
 y = np.linspace(-1, 1, 450)
 X, Y = np.meshgrid(x, y)
@@ -214,7 +218,7 @@ R = np.sqrt(X**2 + (Y * 0.8)**2)
 grad = np.clip(1 - R, 0, 1)
 ax.imshow(grad, extent=[-0.02, 1.02, -0.02, 1.02], cmap="Blues", alpha=0.18, origin="lower", aspect="auto")
 
-                           
+# Draw edges with soft glow
 for u, v, d in G.edges(data=True):
     if "Wave damage" in v or "Wave damage" in u:
         edge_color = "#ff9f1c"
@@ -261,7 +265,7 @@ for u, v, d in G.edges(data=True):
     )
     ax.add_patch(glow)
 
-                     
+# Draw nodes by group
 for group, color in node_colors.items():
     nlist = [n for n, d in G.nodes(data=True) if d["group"] == group]
     sizes = [G.nodes[n]["size"] * 1.55 for n in nlist]
@@ -283,7 +287,7 @@ for group, color in node_colors.items():
         linewidths=1.2, edgecolors="white", ax=ax
     )
 
-        
+# Labels
 for n, (x0, y0) in pos.items():
     fs = 12
     if G.nodes[n]["layer"] >= 4:
@@ -297,7 +301,7 @@ for n, (x0, y0) in pos.items():
         fontsize=fs, fontweight="bold", zorder=3
     )
 
-                               
+# Layer headers and guide lines
 for layer, header in layer_headers.items():
     ax.text(
         x_coords[layer], 1.01, header,
@@ -338,7 +342,7 @@ ax.set_xlim(-0.02, 1.02)
 ax.set_ylim(-0.08, 1.12)
 ax.axis("off")
 
-                                 
+# Bottom panel: loss trajectories
 ax2 = fig.add_subplot(gs[1])
 ax2.set_facecolor("#081421")
 
@@ -380,17 +384,23 @@ fig.savefig(png_path, bbox_inches="tight", facecolor=fig.get_facecolor())
 fig.savefig(svg_path, bbox_inches="tight", facecolor=fig.get_facecolor())
 plt.close(fig)
 
-                               
+# -----------------------------
+# 4) Save the script used
+# -----------------------------
 script = r'''
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import networkx as nx
 from matplotlib.patches import FancyArrowPatch
+
+# Reconstruct annual losses and build the graph...
+# This script mirrors the figure-generation logic used in the delivered artifacts.
 '''
 script_path = outdir / "coral_cascade_network_2100_script.py"
 
-                                                                                       
+# Save the full executable code by reading it from this notebook cell would be awkward,
+# so write a compact but functional standalone script with the same outputs.
 standalone_code = f"""
 import numpy as np
 import pandas as pd

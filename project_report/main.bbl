@@ -1,0 +1,211 @@
+\begin{thebibliography}{35}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Bellwood et~al.(2004)]{bellwood2004}
+David~R. Bellwood et~al.
+\newblock Confronting the coral reef crisis.
+\newblock \emph{Nature}, 429:\penalty0 827--833, 2004.
+\newblock \doi{10.1038/nature02691}.
+
+\bibitem[{Caribbean Catastrophe Risk Insurance Facility}()]{ccrif_reef_insurance}
+{Caribbean Catastrophe Risk Insurance Facility}.
+\newblock {Reef Insurance Program Documentation}.
+\newblock \url{https://www.ccrif.org/}.
+\newblock Accessed 2025.
+
+\bibitem[Costello and Ward(2006)]{costello2006}
+Christopher Costello and Michael Ward.
+\newblock Search, bioprospecting and biodiversity conservation.
+\newblock \emph{Journal of Environmental Economics and Management}, 52\penalty0 (3):\penalty0 615--626, 2006.
+\newblock \doi{10.1016/j.jeem.2006.03.008}.
+
+\bibitem[{Federal Emergency Management Agency}(2025)]{fema_nfip}
+{Federal Emergency Management Agency}.
+\newblock {FIMA NFIP Redacted Claims (v2)}.
+\newblock \url{https://www.fema.gov/openfema-data-page/fima-nfip-redacted-claims-v2}, 2025.
+\newblock Accessed September 9, 2025.
+
+\bibitem[{Federal Reserve Bank of St. Louis}()]{fred}
+{Federal Reserve Bank of St. Louis}.
+\newblock {Federal Reserve Economic Data (FRED)}.
+\newblock \url{https://fred.stlouisfed.org/}.
+\newblock Accessed 2025.
+
+\bibitem[Ferrario et~al.(2014)]{ferrario_2014}
+Filippo Ferrario et~al.
+\newblock The effectiveness of coral reefs for coastal hazard risk reduction and adaptation.
+\newblock \emph{Nature Communications}, 5:\penalty0 3794, 2014.
+\newblock \doi{10.1038/ncomms4794}.
+
+\bibitem[{Florida Department of Economic Opportunity}()]{fl_deo_tourism}
+{Florida Department of Economic Opportunity}.
+\newblock {Reef Tourism Expenditure Survey}.
+\newblock Accessed 2025.
+
+\bibitem[{Florida Fish and Wildlife Conservation Commission}()]{fwc_fishing_records}
+{Florida Fish and Wildlife Conservation Commission}.
+\newblock {Commercial Fishing License and Catch Records}.
+\newblock \url{https://myfwc.com/research/saltwater/fishstats/commercial-fisheries/landings-in-florida/}.
+\newblock Accessed 2025.
+
+\bibitem[{Florida Reef Resilience Program}()]{frrp}
+{Florida Reef Resilience Program}.
+\newblock {Program Overview and Monitoring Framework}.
+\newblock \url{https://myfwc.com/research/habitat/coral/drm/}.
+\newblock Accessed 2025.
+
+\bibitem[Graham et~al.(2006)]{graham2006}
+Nicholas A.~J. Graham et~al.
+\newblock Dynamic fragility of oceanic coral reef ecosystems.
+\newblock \emph{Ecology}, 87\penalty0 (3):\penalty0 S149--S152, 2006.
+
+\bibitem[Hughes et~al.(2017)]{hughes2017}
+Terry~P. Hughes et~al.
+\newblock Global warming and recurrent mass bleaching of corals.
+\newblock \emph{Nature}, 543:\penalty0 373--377, 2017.
+\newblock \doi{10.1038/nature21707}.
+
+\bibitem[Hughes et~al.(2018)]{hughes2018}
+Terry~P. Hughes et~al.
+\newblock Global warming transforms coral reef assemblages.
+\newblock \emph{Nature}, 556:\penalty0 492--496, 2018.
+\newblock \doi{10.1038/s41586-018-0041-2}.
+
+\bibitem[{Intergovernmental Panel on Climate Change}(2022)]{ipcc2022}
+{Intergovernmental Panel on Climate Change}.
+\newblock {Sixth Assessment Report (AR6): Climate Change 2022 --- Impacts, Adaptation, and Vulnerability}.
+\newblock \url{https://www.ipcc.ch/report/ar6/wg2/}, 2022.
+
+\bibitem[{International Best Track Archive for Climate Stewardship}(2024)]{ibtracs}
+{International Best Track Archive for Climate Stewardship}.
+\newblock {IBTrACS: Global Tropical Cyclone Best-Track Data}.
+\newblock \url{https://www.ncei.noaa.gov/products/international-best-track-archive}, 2024.
+\newblock Accessed June 2024.
+
+\bibitem[MacArthur and Wilson(1967)]{macarthur1967}
+Robert~H. MacArthur and Edward~O. Wilson.
+\newblock \emph{The Theory of Island Biogeography}.
+\newblock Princeton University Press, Princeton, NJ, 1967.
+
+\bibitem[{Monroe County Tourist Development Council}(2023)]{monroe_tdc_2023}
+{Monroe County Tourist Development Council}.
+\newblock {Annual Visitation Statistics}.
+\newblock \url{https://visitfloridakeys.com/industry-partners/value-of-tourism}, 2023.
+\newblock Accessed 2025.
+
+\bibitem[{National Oceanic and Atmospheric Administration}(2026{\natexlab{a}})]{noaa_2026_econ}
+{National Oceanic and Atmospheric Administration}.
+\newblock {Coral Reef Economic Valuation and Tourism Dependence Summaries}.
+\newblock \url{https://coast.noaa.gov/states/fast-facts/coral-reefs.html}, 2026{\natexlab{a}}.
+\newblock Accessed 2026.
+
+\bibitem[{National Oceanic and Atmospheric Administration}(2026{\natexlab{b}})]{noaa_coris}
+{National Oceanic and Atmospheric Administration}.
+\newblock {Coral Reef Information System (CORIS): Benthic Cover and Reef Health Datasets}.
+\newblock \url{https://coris.noaa.gov/data/welcome.html}, 2026{\natexlab{b}}.
+\newblock Accessed January 28, 2026.
+
+\bibitem[Newman and Cragg(2016)]{newman2016}
+David~J. Newman and Gordon~M. Cragg.
+\newblock Natural products as sources of new drugs from 1981 to 2014.
+\newblock \emph{Journal of Natural Products}, 79\penalty0 (3):\penalty0 629--661, 2016.
+\newblock \doi{10.1021/acs.jnatprod.5b01055}.
+
+\bibitem[{NOAA Coral Reef Conservation Program}()]{noaa_crcp}
+{NOAA Coral Reef Conservation Program}.
+\newblock {Survey Regions and Monitoring Protocols}.
+\newblock \url{https://coralreef.noaa.gov/}.
+\newblock Accessed 2025.
+
+\bibitem[{NOAA Coral Reef Watch}()]{noaa_crw}
+{NOAA Coral Reef Watch}.
+\newblock {Bleaching Heat Stress Metrics and DHW Thresholds}.
+\newblock \url{https://coralreefwatch.noaa.gov/}.
+\newblock Accessed 2025.
+
+\bibitem[{NOAA Florida Keys National Marine Sanctuary}()]{noaa_fknms}
+{NOAA Florida Keys National Marine Sanctuary}.
+\newblock {Sanctuary Boundary and Management Data}.
+\newblock \url{https://floridakeys.noaa.gov/about/sanctuary.html}.
+\newblock Accessed 2025.
+
+\bibitem[{NOAA National Coral Reef Monitoring Program}()]{noaa_ncrmp}
+{NOAA National Coral Reef Monitoring Program}.
+\newblock {Benthic Photo-Quadrat Surveys}.
+\newblock \url{https://coralreef.noaa.gov/topics/national-coral-reef-monitoring-program/protocols}.
+\newblock Accessed 2025.
+
+\bibitem[{NOAA Reef Visual Census}(2022)]{noaa_rvc}
+{NOAA Reef Visual Census}.
+\newblock {Fish Survey Data}.
+\newblock \url{https://www.fisheries.noaa.gov/inport/item/8585}, 2022.
+\newblock Accessed March 21, 2022.
+
+\bibitem[Paddack et~al.(2009)]{paddack2009}
+Michelle~J. Paddack et~al.
+\newblock Recent region-wide declines in caribbean reef fish abundance.
+\newblock \emph{Current Biology}, 19\penalty0 (7):\penalty0 590--595, 2009.
+\newblock \doi{10.1016/j.cub.2009.02.041}.
+
+\bibitem[Simpson et~al.(1996)Simpson, Sedjo, and Reid]{simpson1996}
+R.~David Simpson, Roger~A. Sedjo, and John~W. Reid.
+\newblock Valuing biodiversity for use in pharmaceutical research.
+\newblock \emph{Journal of Political Economy}, 104\penalty0 (1):\penalty0 163--185, 1996.
+\newblock \doi{10.1086/262017}.
+
+\bibitem[Storlazzi et~al.(2019)]{storlazzi_2019}
+Curt~D. Storlazzi et~al.
+\newblock Rigorously valuing the role of {U.S.} coral reefs in coastal hazard risk reduction.
+\newblock Technical Report OFR 2019--1027, U.S. Geological Survey, 2019.
+
+\bibitem[Teicher(2025)]{teicher_2025}
+Stacy Teicher.
+\newblock Reporting on equity impacts of reef degradation in coastal communities.
+\newblock Journalistic Report, 2025.
+
+\bibitem[{The World Bank}()]{world_bank}
+{The World Bank}.
+\newblock {World Development Indicators: Economic Aggregates for Tourism, GDP, and Fisheries}.
+\newblock \url{https://data.worldbank.org/}.
+\newblock Accessed 2025.
+
+\bibitem[{United Nations Environment Programme}()]{unep_nd}
+{United Nations Environment Programme}.
+\newblock {Ocean Acidification and Bleaching Risk Summaries}.
+\newblock \url{https://www.unep.org/topics/ocean-seas-and-coasts/blue-ecosystems/coral-reefs}.
+\newblock Accessed 2025.
+
+\bibitem[{United Nations Environment Programme}(2025)]{unep_2025}
+{United Nations Environment Programme}.
+\newblock {Coral Reef Biodiversity and Ecosystem Services}.
+\newblock \url{https://www.unep.org/topics/ocean-seas-and-coasts/blue-ecosystems/coral-reefs}, 2025.
+\newblock Accessed 2025.
+
+\bibitem[{United States Army Corps of Engineers}()]{usace_flood}
+{United States Army Corps of Engineers}.
+\newblock {Florida Coastal Flood Damage Estimates}.
+\newblock Accessed 2025.
+
+\bibitem[{United States Department of Agriculture}()]{usda_disaster}
+{United States Department of Agriculture}.
+\newblock {Agricultural Disaster Payment Threshold Guidance}.
+\newblock \url{https://www.farmers.gov/protection-recovery/disaster-assistance}.
+\newblock Accessed 2025.
+
+\bibitem[{United States Environmental Protection Agency}(2025)]{epa_2025}
+{United States Environmental Protection Agency}.
+\newblock {Basic Information About Coral Reefs}.
+\newblock \url{https://www.epa.gov/coral-reefs/basic-information-about-coral-reefs}, 2025.
+\newblock Accessed 2025.
+
+\bibitem[{United States Office of Management and Budget}(2003)]{omb_a4_2003}
+{United States Office of Management and Budget}.
+\newblock {Circular A-4: Regulatory Analysis --- Discount Rate Guidance}.
+\newblock \url{https://obamawhitehouse.archives.gov/omb/circulars_a004_a-4/}, 2003.
+\newblock Accessed 2025.
+
+\end{thebibliography}
