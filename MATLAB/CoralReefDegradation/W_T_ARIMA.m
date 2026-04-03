@@ -2,7 +2,7 @@ clc;
 clear;
 close all;
 
-%% ── Publication figure defaults ─────────────────────────────────────────
+
 set(groot, 'defaultAxesColor',       'w');
 set(groot, 'defaultFigureColor',     'w');
 set(groot, 'defaultAxesBox',         'off');
@@ -26,9 +26,7 @@ RED   = [0.80 0.17 0.17];
 GREEN = [0.13 0.60 0.32];
 LGRAY = [0.85 0.85 0.85];
 
-%% ── Helper: scrub every axes in a figure to be publication-clean ─────────
-%   Fixes box, grid, tick direction, colors, and font on all axes and text
-%   objects, including those created internally by autocorr/parcorr/qqplot.
+
 function cleanAxes(fig)
     axList = findall(fig, 'Type', 'axes');
     for k = 1:numel(axList)
@@ -56,7 +54,7 @@ function cleanAxes(fig)
     set(fig, 'Color', 'w');
 end
 
-%% ── Load data ────────────────────────────────────────────────────────────
+
 file = '../../data/raw/NOAA/sst.mnmean.v4.nc';
 
 lon  = ncread(file, 'lon');
@@ -74,23 +72,23 @@ base_date = datetime(1800,1,1);
 dates     = base_date + days(time);
 fprintf('Time range: %s to %s\n', datestr(dates(1)), datestr(dates(end)));
 
-%% ── Clean missing data ───────────────────────────────────────────────────
+
 sst(sst < -100) = NaN;
 
-%% ── Extract tropical band ────────────────────────────────────────────────
+
 tropical_idx  = lat >= -23.5 & lat <= 23.5;
 lat_tropical  = lat(tropical_idx);
 sst_tropical  = sst(:, tropical_idx, :);
 
 fprintf('Tropical latitudes: %.1f S to %.1f N\n', min(lat_tropical), max(lat_tropical));
 
-%% ── Tropical mean time series ────────────────────────────────────────────
+
 tropical_mean_sst = squeeze(mean(sst_tropical, [1 2], 'omitnan'));
 
 fprintf('Tropical SST range: %.2f to %.2f deg C\n', min(tropical_mean_sst), max(tropical_mean_sst));
 fprintf('Mean: %.2f deg C,  Std: %.2f deg C\n', mean(tropical_mean_sst), std(tropical_mean_sst));
 
-%% ── Figure 1 · Time series overview ─────────────────────────────────────
+
 fig1 = figure('Position', [100 100 1400 900]);
 
 subplot(4,1,1);
@@ -134,7 +132,7 @@ datetick('x','yyyy','keeplimits');
 cleanAxes(fig1);
 fprintf('\nLinear trend: %.4f deg C/month (%.2f deg C/century)\n', p(1), p(1)*12*100);
 
-%% ── Figure 2 · ACF / PACF ───────────────────────────────────────────────
+
 y = double(tropical_mean_sst);
 
 fig2 = figure('Position', [100 100 1200 800]);
@@ -155,7 +153,7 @@ title('Partial Autocorrelation Function (PACF)', 'FontWeight','bold');
 
 cleanAxes(fig2);
 
-%% ── ARIMA modelling ──────────────────────────────────────────────────────
+
 fprintf('\n-- ARIMA MODELLING WITH TREND --\n');
 
 t_numeric   = (1:length(y))';
@@ -185,7 +183,7 @@ fits = {fit1,fit2,fit3,fit4,fit5};
 best_fit = fits{best_idx};
 fprintf('\nBest: %s  (AIC = %.2f)\n', model_names{best_idx}, aics(best_idx));
 
-%% ── Figure 3 · Forecast ──────────────────────────────────────────────────
+
 numPeriods     = 240;
 [yF_det, yMSE] = forecast(best_fit, numPeriods, 'Y0', y_detrended);
 
@@ -226,7 +224,7 @@ for mo = [12 60 120 240]
 end
 fprintf('Projected increase over 20 years: %.2f deg C\n', yF(240)-y(end));
 
-%% ── Figure 4 · Residual diagnostics ─────────────────────────────────────
+
 res = double(infer(best_fit, y_detrended));
 [h_lb, pValue] = lbqtest(res, 'Lags', 20);
 
@@ -289,7 +287,7 @@ fprintf('\nResidual diagnostics:\n');
 fprintf('  Mean: %.4f,  Std: %.4f deg C\n', mean(res), std(res));
 fprintf('  Ljung-Box p-value: %.4f\n', pValue);
 
-%% ── Export forecast ──────────────────────────────────────────────────────
+
 forecast_table = table(future_dates, yF, yF_lower, yF_upper, sqrt(yMSE), ...
     'VariableNames', {'Date','Forecast_SST','Lower_95CI','Upper_95CI','Std_Error'});
 writetable(forecast_table, 'tropical_sst_forecast.csv');

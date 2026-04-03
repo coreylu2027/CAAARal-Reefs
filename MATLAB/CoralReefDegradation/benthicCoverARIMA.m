@@ -2,7 +2,7 @@ clc;
 clear;
 close all;
 
-% ── Figure defaults ───────────────────────────────────────────────────────
+
 set(groot, 'defaultAxesColor',       'w');
 set(groot, 'defaultFigureColor',     'w');
 set(groot, 'defaultAxesBox',         'off');
@@ -16,6 +16,9 @@ set(groot, 'defaultAxesZColor',      'k');
 set(groot, 'defaultAxesLineWidth',   0.9);
 set(groot, 'defaultTextFontName',    'Helvetica');
 set(groot, 'defaultTextColor',       'k');
+set(groot, 'defaultTextInterpreter', 'latex');
+set(groot, 'defaultLegendInterpreter', 'latex');
+set(groot, 'defaultAxesTickLabelInterpreter', 'latex');
 set(groot, 'defaultLegendBox',       'off');
 set(groot, 'defaultLegendTextColor', 'k');
 set(groot, 'defaultLegendFontSize',  10);
@@ -27,8 +30,10 @@ CLR_FCST    = [0.80 0.17 0.17];
 CLR_SARIMAX = [0.49 0.18 0.56];
 CLR_TREND   = [0.30 0.30 0.30];
 CLR_LGRAY   = [0.88 0.88 0.88];
+SHOW_ONLY_CORE_FIGURES = true;
+SHOW_SPECIES_FIGURE = false;
 
-% ── Styling helper ────────────────────────────────────────────────────────
+
 function cleanFig(fig)
     for ax = findall(fig, 'Type', 'axes')'
         set(ax, 'Box','off', 'XGrid','off', 'YGrid','off', ...
@@ -54,16 +59,80 @@ function out = ternary(cond, a, b)
     if cond, out = a; else, out = b; end
 end
 
-% ═════════════════════════════════════════════════════════════════════════
-% 1.  LOAD DATA
-% ═════════════════════════════════════════════════════════════════════════
-pwd
-folderPath = '../../data/raw/CORIS_DATA/';
-files = dir(fullfile(folderPath, '**', '*Benthic*'));
-if isempty(files)
-    error('No benthic files found under %s', folderPath);
+function y = apply_mean_reversion(y, anchor, max_strength, tau_years)
+    y = y(:);
+    for k = 1:length(y)
+        w = max_strength * (1 - exp(-k / tau_years));
+        y(k) = y(k) + w * (anchor - y(k));
+    end
 end
-fprintf('\n%d file(s) found\n', length(files));
+
+function [y, y_lower, y_upper] = enforce_ecological_bounds(y, y_lower, y_upper, last_obs, collapse_threshold, resilience_band, decline_damping, min_cover)
+    % Keep forecasts ecologically plausible: no rebound after collapse and softer decline near low cover.
+    y       = y(:);
+    y_lower = y_lower(:);
+    y_upper = y_upper(:);
+    prev = last_obs;
+
+    for k = 1:length(y)
+        cand = y(k);
+
+
+        if prev <= collapse_threshold || cand <= collapse_threshold
+            y(k:end)       = 0;
+            y_lower(k:end) = 0;
+            y_upper(k:end) = 0;
+            break;
+        end
+
+
+        if cand < prev && prev < resilience_band
+            cand = prev + decline_damping * (cand - prev);
+        end
+
+        cand = max(min_cover, min(100, cand));
+        y(k) = cand;
+
+        lo_k = max(0, min(100, y_lower(k)));
+        hi_k = max(0, min(100, y_upper(k)));
+        y_lower(k) = min(lo_k, y(k));
+        y_upper(k) = max(hi_k, y(k));
+
+        prev = y(k);
+    end
+end
+
+
+scriptDir = fileparts(mfilename('fullpath'));
+repoRoot  = fileparts(fileparts(scriptDir));
+
+% Prefer raw CORIS inputs and fall back to processed if raw is unavailable.
+corisRoots = {
+    fullfile(repoRoot, 'data', 'raw', 'CORIS_DATA'), ...
+    fullfile(repoRoot, 'data', 'processed', 'CORIS_DATA')
+};
+
+sourceRoot = "";
+for r = 1:numel(corisRoots)
+    if isfolder(corisRoots{r})
+        sourceRoot = string(corisRoots{r});
+        break;
+    end
+end
+
+if strlength(sourceRoot) == 0
+    searched = strjoin(corisRoots, ', ');
+    error('No CORIS_DATA root found. Searched: %s', searched);
+end
+
+files = dir(fullfile(char(sourceRoot), '**', '*Benthic*Cover*.csv'));
+
+if isempty(files)
+    error('No benthic cover files found under %s', char(sourceRoot));
+end
+
+fprintf('\nUsing CORIS_DATA source: %s\n', char(sourceRoot));
+fprintf('%d benthic cover file(s) found\n', length(files));
 
 raw_tables   = {};
 all_col_sets = {};
@@ -89,7 +158,7 @@ if isempty(raw_tables)
     error('No files loaded.');
 end
 
-% Pad every table to the union of all column names before stacking.
+
 all_cols = unique([all_col_sets{:}], 'stable');
 for f = 1:length(raw_tables)
     for col = setdiff(all_cols, raw_tables{f}.Properties.VariableNames)
@@ -98,16 +167,23 @@ for f = 1:length(raw_tables)
     raw_tables{f} = raw_tables{f}(:, all_cols);
 end
 
+% Align columns before concatenation so every source file contributes consistently.
 data_all  = vertcat(raw_tables{:});
+rows_before_dedup = height(data_all);
+data_all  = unique(data_all, 'rows', 'stable');
+rows_dropped = rows_before_dedup - height(data_all);
 col_names = data_all.Properties.VariableNames;
 fprintf('\n%d rows total,  %d columns\n', height(data_all), width(data_all));
+if rows_dropped > 0
+    fprintf('Removed %d exact duplicate rows\n', rows_dropped);
+end
 
 fprintf('\nColumns:\n');
 for c = 1:length(col_names)
     fprintf('  %2d.  %s\n', c, col_names{c});
 end
 
-% ── Numeric casts ─────────────────────────────────────────────────────────
+
 num_cols = {'YEAR','HARDBOTTOM_P','SOFTBOTTOM_P','RUBBLE_P','latitude', ...
             'longitude','MIN_DEPTH','MAX_DEPTH','PROT','WTD_RUG','STATION_NR'};
 n_data = height(data_all);
@@ -122,7 +198,7 @@ for nc = 1:length(num_cols)
     data_all.(col) = str2double(v);
 end
 
-% ── Taxonomy codes (CRCP / AGRRA) ────────────────────────────────────────
+
 hard_coral_codes = [ ...
     "ACR CERV","ACR PALM","AGA AGAR","AGA FRAG","AGA HUMI","AGA LAMA","AGA SPE.", ...
     "COL NATA","COL SPE.","DEN CYLI","DIC STOK","DIP LABY","DIP SPE.","EUS FAST", ...
@@ -139,9 +215,7 @@ algae_codes = [ ...
 
 sponge_codes = ["SPO OTHE","CLI SPE."];
 
-% ═════════════════════════════════════════════════════════════════════════
-% 2.  BUILD TRANSECT TABLE
-% ═════════════════════════════════════════════════════════════════════════
+
 data_all  = data_all(~isnan(data_all.YEAR), :);
 col_names = data_all.Properties.VariableNames;
 n_rows    = height(data_all);
@@ -196,14 +270,14 @@ T = struct( ...
     'habitat',     strings(n_transects,1), ...
     'zone',        strings(n_transects,1));
 
-% ── FIX: ensure HARDBOTTOM_P is numeric after all filtering ───────────────
+
 if ismember('HARDBOTTOM_P', data_all.Properties.VariableNames)
     if ~isnumeric(data_all.HARDBOTTOM_P)
         data_all.HARDBOTTOM_P = str2double(data_all.HARDBOTTOM_P);
     end
 end
 
-% ── FIX: trim whitespace from category codes before matching ─────────────
+
 if ismember('COVER_CAT_CD', data_all.Properties.VariableNames)
     data_all.COVER_CAT_CD = strtrim(data_all.COVER_CAT_CD);
 end
@@ -211,12 +285,12 @@ end
 hb_col  = data_all.HARDBOTTOM_P;
 cat_col = data_all.COVER_CAT_CD;
 
-% ── DIAGNOSTIC: print unique category codes to verify matching ───────────
+
 unique_cats = unique(cat_col);
 fprintf('\nUnique COVER_CAT_CD values (%d total, first 50 shown):\n', length(unique_cats));
 disp(unique_cats(1:min(50,end)));
 
-% Check how many rows match coral codes
+
 n_coral_rows = sum(ismember(cat_col, hard_coral_codes));
 fprintf('Rows matching hard_coral_codes: %d / %d\n', n_coral_rows, length(cat_col));
 
@@ -255,14 +329,14 @@ for i = 1:n_transects
 end
 
 transect_tbl = struct2table(T);
-% Depth is required for the regression; drop records without it.
+
 transect_tbl = transect_tbl(~isnan(transect_tbl.depth_m) & transect_tbl.depth_m > 0, :);
 fprintf('%d transects with valid depth\n', height(transect_tbl));
 
 years_all = unique(transect_tbl.year);
 years_all = years_all(~isnan(years_all));
 
-% ── Annual means ──────────────────────────────────────────────────────────
+
 annual_mean_hc  = arrayfun(@(y) mean(transect_tbl.hard_coral(transect_tbl.year==y),'omitnan'), years_all);
 annual_se_hc    = arrayfun(@(y) std( transect_tbl.hard_coral(transect_tbl.year==y),'omitnan') / ...
                                 sqrt(sum(transect_tbl.year==y)), years_all);
@@ -283,67 +357,65 @@ for y = 1:length(years_all)
         mean(transect_tbl.n_coral_spp(idx),'omitnan'));
 end
 
-% ═════════════════════════════════════════════════════════════════════════
-% 3.  FIGURE 1 – EXPLORATORY OVERVIEW
-% ═════════════════════════════════════════════════════════════════════════
-fig1 = figure('Position',[50 50 1400 800], 'Name','Exploratory');
+if ~SHOW_ONLY_CORE_FIGURES
 
-ax1 = subplot(2,2,1);
-errorbar(years_all, annual_mean_hc, annual_se_hc, 'o-', ...
-    'LineWidth',1.8, 'MarkerSize',7, 'CapSize',4, ...
-    'Color',CLR_CORAL, 'MarkerFaceColor',CLR_CORAL);
-xlabel('Year'); ylabel('Hard Coral Cover (%)');
-title('Hard Coral Cover');
-text(years_all, annual_mean_hc + annual_se_hc + 0.3, ...
-    arrayfun(@(n) sprintf('n=%d',n), annual_n, 'UniformOutput',false), ...
-    'HorizontalAlignment','center', 'FontSize',8, 'Color','k');
 
-ax2 = subplot(2,2,2);
-plot(years_all, annual_mean_alg, 's-', 'LineWidth',1.8, 'MarkerSize',7, ...
-    'Color',CLR_ALGAE, 'MarkerFaceColor',CLR_ALGAE, 'DisplayName','Algae');
-hold on;
-plot(years_all, annual_mean_spo, 'd-', 'LineWidth',1.8, 'MarkerSize',7, ...
-    'Color',CLR_SPONGE, 'MarkerFaceColor',CLR_SPONGE, 'DisplayName','Sponge');
-xlabel('Year'); ylabel('Cover (%)');
-title('Algae and Sponge Cover');
-legend('Location','best');
+    fig1 = figure('Position',[50 50 1400 800], 'Name','Exploratory');
 
-ax3 = subplot(2,2,3);
-scatter(transect_tbl.algae, transect_tbl.hard_coral, 18, transect_tbl.year, ...
-    'filled', 'MarkerFaceAlpha',0.4);
-colormap(ax3, parula);
-cb = colorbar; cb.Label.String = 'Year'; cb.Color = 'k';
-hold on;
-% ── FIX: guard polyfit against degenerate (all-zero) data ────────────────
-if std(transect_tbl.algae) > 0 && std(transect_tbl.hard_coral) > 0
-    xr = linspace(0, max(transect_tbl.algae), 100);
-    plot(xr, polyval(polyfit(transect_tbl.algae, transect_tbl.hard_coral,1), xr), ...
-        '--', 'Color',CLR_FCST, 'LineWidth',1.5);
-    r_corr = corr(transect_tbl.algae, transect_tbl.hard_coral, 'rows','complete');
-    text(0.05, 0.92, sprintf('r = %.3f', r_corr), 'Units','normalized', ...
-        'FontSize',10, 'Color','k');
-else
-    text(0.05, 0.92, 'r = N/A (zero variance)', 'Units','normalized', ...
-        'FontSize',10, 'Color','k');
+    ax1 = subplot(2,2,1);
+    errorbar(years_all, annual_mean_hc, annual_se_hc, 'o-', ...
+        'LineWidth',1.8, 'MarkerSize',7, 'CapSize',4, ...
+        'Color',CLR_CORAL, 'MarkerFaceColor',CLR_CORAL);
+    xlabel('Year'); ylabel('Hard Coral Cover (%)');
+    title('Hard Coral Cover');
+    text(years_all, annual_mean_hc + annual_se_hc + 0.3, ...
+        arrayfun(@(n) sprintf('n=%d',n), annual_n, 'UniformOutput',false), ...
+        'HorizontalAlignment','center', 'FontSize',8, 'Color','k');
+
+    ax2 = subplot(2,2,2);
+    plot(years_all, annual_mean_alg, 's-', 'LineWidth',1.8, 'MarkerSize',7, ...
+        'Color',CLR_ALGAE, 'MarkerFaceColor',CLR_ALGAE, 'DisplayName','Algae');
+    hold on;
+    plot(years_all, annual_mean_spo, 'd-', 'LineWidth',1.8, 'MarkerSize',7, ...
+        'Color',CLR_SPONGE, 'MarkerFaceColor',CLR_SPONGE, 'DisplayName','Sponge');
+    xlabel('Year'); ylabel('Cover (%)');
+    title('Algae and Sponge Cover');
+    legend('Location','best');
+
+    ax3 = subplot(2,2,3);
+    scatter(transect_tbl.algae, transect_tbl.hard_coral, 18, transect_tbl.year, ...
+        'filled', 'MarkerFaceAlpha',0.4);
+    colormap(ax3, parula);
+    cb = colorbar; cb.Label.String = 'Year'; cb.Color = 'k';
+    hold on;
+
+    if std(transect_tbl.algae) > 0 && std(transect_tbl.hard_coral) > 0
+        xr = linspace(0, max(transect_tbl.algae), 100);
+        plot(xr, polyval(polyfit(transect_tbl.algae, transect_tbl.hard_coral,1), xr), ...
+            '--', 'Color',CLR_FCST, 'LineWidth',1.5);
+        r_corr = corr(transect_tbl.algae, transect_tbl.hard_coral, 'rows','complete');
+        text(0.05, 0.92, sprintf('r = %.3f', r_corr), 'Units','normalized', ...
+            'FontSize',10, 'Color','k');
+    else
+        text(0.05, 0.92, 'r = N/A (zero variance)', 'Units','normalized', ...
+            'FontSize',10, 'Color','k');
+    end
+    xlabel('Algae Cover (%)'); ylabel('Hard Coral Cover (%)');
+    title('Coral vs. Algae');
+
+    ax4 = subplot(2,2,4);
+    scatter(transect_tbl.depth_m, transect_tbl.hard_coral, 18, transect_tbl.year, ...
+        'filled', 'MarkerFaceAlpha',0.4);
+    colormap(ax4, parula); colorbar;
+    xlabel('Depth (m)'); ylabel('Hard Coral Cover (%)');
+    title('Coral Cover vs. Depth');
+
+    sg1 = sgtitle('Benthic Cover — Exploratory Overview');
+    sg1.FontSize = 13; sg1.Color = 'k'; sg1.FontWeight = 'normal';
+    cleanFig(fig1);
 end
-xlabel('Algae Cover (%)'); ylabel('Hard Coral Cover (%)');
-title('Coral vs. Algae');
 
-ax4 = subplot(2,2,4);
-scatter(transect_tbl.depth_m, transect_tbl.hard_coral, 18, transect_tbl.year, ...
-    'filled', 'MarkerFaceAlpha',0.4);
-colormap(ax4, parula); colorbar;
-xlabel('Depth (m)'); ylabel('Hard Coral Cover (%)');
-title('Coral Cover vs. Depth');
 
-sg1 = sgtitle('Benthic Cover — Exploratory Overview');
-sg1.FontSize = 13; sg1.Color = 'k'; sg1.FontWeight = 'normal';
-cleanFig(fig1);
-
-% ═════════════════════════════════════════════════════════════════════════
-% 4.  PANEL REGRESSION
-%     hard coral ~ year + depth(z) + algae(z) + protection
-% ═════════════════════════════════════════════════════════════════════════
 fprintf('\nPanel regression\n%s\n', repmat('-',1,50));
 
 transect_tbl.year_norm = transect_tbl.year - min(years_all);
@@ -374,9 +446,7 @@ for c = 1:length(b_ols)
 end
 fprintf('Adjusted trend: %.4f%%/yr\n', b_ols(2));
 
-% ═════════════════════════════════════════════════════════════════════════
-% 5.  ACF / PACF
-% ═════════════════════════════════════════════════════════════════════════
+
 fprintf('\nACF / PACF\n%s\n', repmat('-',1,50));
 
 y_annual       = annual_mean_hc;
@@ -389,44 +459,59 @@ y_detrended = y_annual - trend_cmp;
 
 fprintf('Linear trend: %.4f%%/yr\n', p_trend(1));
 
-fig2 = figure('Position',[100 100 1200 700], 'Name','ACF / PACF');
+if ~SHOW_ONLY_CORE_FIGURES
+    fig2 = figure('Position',[100 100 1200 700], 'Name','ACF / PACF');
 
-subplot(3,1,1);
-plot(years_all, y_annual, 'o-', 'Color',CLR_CORAL, 'LineWidth',1.8, ...
-    'MarkerSize',7, 'MarkerFaceColor',CLR_CORAL, 'DisplayName','Observed');
-hold on;
-plot(years_all, trend_cmp, '--', 'Color',CLR_TREND, 'LineWidth',1.4, ...
-    'DisplayName', sprintf('Trend (%.4f%%/yr)', p_trend(1)));
-xlabel('Year'); ylabel('Hard Coral Cover (%)');
-title('Annual Mean — Hard Coral with Trend');
-legend('Location','best');
+    subplot(3,1,1);
+    plot(years_all, y_annual, 'o-', 'Color',CLR_CORAL, 'LineWidth',1.8, ...
+        'MarkerSize',7, 'MarkerFaceColor',CLR_CORAL, 'DisplayName','Observed');
+    hold on;
+    plot(years_all, trend_cmp, '--', 'Color',CLR_TREND, 'LineWidth',1.4, ...
+        'DisplayName', sprintf('Trend (%.4f%%/yr)', p_trend(1)));
+    xlabel('Year'); ylabel('Hard Coral Cover (%)');
+    title('Annual Mean — Hard Coral with Trend');
+    legend('Location','best');
 
-subplot(3,1,2);
-if length(y_detrended) >= 4
-    autocorr(y_detrended);
-    title('ACF — Detrended Annual Series');
-else
-    axis off; title('ACF (< 4 observations)');
+    subplot(3,1,2);
+    if length(y_detrended) >= 4
+        autocorr(y_detrended);
+        title('ACF — Detrended Annual Series');
+    else
+        axis off; title('ACF (< 4 observations)');
+    end
+
+    subplot(3,1,3);
+    if length(y_detrended) >= 4
+        parcorr(y_detrended);
+        title('PACF — Detrended Annual Series');
+    else
+        axis off; title('PACF (< 4 observations)');
+    end
+
+    sg2 = sgtitle('ACF / PACF — Annual Hard Coral (Detrended)');
+    sg2.FontSize = 13; sg2.Color = 'k'; sg2.FontWeight = 'normal';
+    cleanFig(fig2);
 end
 
-subplot(3,1,3);
-if length(y_detrended) >= 4
-    parcorr(y_detrended);
-    title('PACF — Detrended Annual Series');
-else
-    axis off; title('PACF (< 4 observations)');
-end
 
-sg2 = sgtitle('ACF / PACF — Annual Hard Coral (Detrended)');
-sg2.FontSize = 13; sg2.Color = 'k'; sg2.FontWeight = 'normal';
-cleanFig(fig2);
-
-% ═════════════════════════════════════════════════════════════════════════
-% 6.  ARIMA / SARIMA MODEL SELECTION
-% ═════════════════════════════════════════════════════════════════════════
 fprintf('\nARIMA / SARIMA model selection\n%s\n', repmat('-',1,50));
 
-forecast_horizon = 26;
+target_forecast_year = 2100;
+forecast_horizon     = target_forecast_year - years_all(end);
+if forecast_horizon < 1
+    error('Latest observed year (%d) is already >= target year (%d).', years_all(end), target_forecast_year);
+end
+
+collapse_threshold    = 0.05;
+resilience_band       = 8.00;
+low_cover_damping     = 0.15;
+min_cover_precollapse = 1.00;
+
+trend_decay_tau       = 18;
+reversion_tau         = 10;
+reversion_strength    = 0.22;
+anchor_window         = min(7, length(y_annual));
+coral_anchor          = mean(y_annual(end-anchor_window+1:end), 'omitnan');
 
 model_defs = { ...
     arima('ARLags',1,     'D',0),              'AR(1)';
@@ -479,15 +564,21 @@ best_model_name = model_names_list{best_model_idx};
 fprintf('\n  Selected: %s   AIC = %.3f   BIC = %.3f\n', ...
     best_model_name, aic_vals(best_model_idx), bic_vals(best_model_idx));
 
-% ── Forecast ──────────────────────────────────────────────────────────────
+
 [yF_det, yMSE] = forecast(best_fit, forecast_horizon, 'Y0', y_detrended);
 
-future_t     = (length(y_annual)+1 : length(y_annual)+forecast_horizon)';
-trend_future = polyval(p_trend, future_t);
+h = (1:forecast_horizon)';
+trend_future = trend_cmp(end) + p_trend(1) * trend_decay_tau * (1 - exp(-h / trend_decay_tau));
 
 yF       = max(0, min(100, yF_det + trend_future));
 yF_upper = min(100, max(0, yF_det + trend_future + 1.96*sqrt(yMSE)));
 yF_lower = max(0,         yF_det + trend_future - 1.96*sqrt(yMSE));
+yF = apply_mean_reversion(yF, coral_anchor, reversion_strength, reversion_tau);
+yF_upper = apply_mean_reversion(yF_upper, coral_anchor, reversion_strength, reversion_tau);
+yF_lower = apply_mean_reversion(yF_lower, coral_anchor, reversion_strength, reversion_tau);
+[yF, yF_lower, yF_upper] = enforce_ecological_bounds( ...
+    yF, yF_lower, yF_upper, y_annual(end), ...
+    collapse_threshold, resilience_band, low_cover_damping, min_cover_precollapse);
 
 last_year        = years_all(end);
 future_years_vec = (last_year+1 : last_year+forecast_horizon);
@@ -499,7 +590,7 @@ for f = 1:forecast_horizon
         future_years_vec(f), yF(f), yF_lower(f), yF_upper(f));
 end
 
-% ── Ljung-Box on ARIMA residuals ─────────────────────────────────────────
+
 try
     res_arima    = double(infer(best_fit, y_detrended));
     max_lag      = min(10, floor(length(res_arima)/3));
@@ -512,9 +603,7 @@ catch ME
     h_lb = NaN; p_lb = NaN;
 end
 
-% ═════════════════════════════════════════════════════════════════════════
-% 7.  SARIMAX  (algae as exogenous predictor)
-% ═════════════════════════════════════════════════════════════════════════
+
 fprintf('\nSARIMAX (algae exogenous)\n%s\n', repmat('-',1,50));
 
 results_sarimax = struct('success', false);
@@ -570,6 +659,16 @@ try
     results_sarimax.forecast       = max(0, min(100, yF_sx));
     results_sarimax.forecast_upper = min(100, max(0, yF_sx + 1.96*res_std_sx));
     results_sarimax.forecast_lower = max(0,         yF_sx - 1.96*res_std_sx);
+    results_sarimax.forecast = apply_mean_reversion( ...
+        results_sarimax.forecast, coral_anchor, reversion_strength, reversion_tau);
+    results_sarimax.forecast_upper = apply_mean_reversion( ...
+        results_sarimax.forecast_upper, coral_anchor, reversion_strength, reversion_tau);
+    results_sarimax.forecast_lower = apply_mean_reversion( ...
+        results_sarimax.forecast_lower, coral_anchor, reversion_strength, reversion_tau);
+    [results_sarimax.forecast, results_sarimax.forecast_lower, results_sarimax.forecast_upper] = ...
+        enforce_ecological_bounds(results_sarimax.forecast, ...
+        results_sarimax.forecast_lower, results_sarimax.forecast_upper, y_annual(end), ...
+        collapse_threshold, resilience_band, low_cover_damping, min_cover_precollapse);
     results_sarimax.algae_forecast = alg_forecast_raw;
     results_sarimax.model_name     = best_sx_name;
     results_sarimax.beta_algae     = best_sarimax.Beta;
@@ -592,19 +691,18 @@ catch ME
     results_sarimax.model_name = sprintf('ARIMA fallback (%s)', best_model_name);
 end
 
-% ═════════════════════════════════════════════════════════════════════════
-% 8.  FIGURE 2 – FORECAST
-% ═════════════════════════════════════════════════════════════════════════
+
 fig3 = figure('Position',[50 50 1400 600], 'Name','Forecast');
 
 axf1 = subplot(1,2,1);
 hold on;
 fill([future_years_vec, fliplr(future_years_vec)], [yF_upper', fliplr(yF_lower')], ...
     CLR_FCST, 'FaceAlpha',0.12, 'EdgeColor','none', 'DisplayName','95% CI');
-trend_x = linspace(years_all(1), future_years_vec(end), 200);
-trend_t = linspace(1, length(y_annual)+forecast_horizon, 200);
-plot(trend_x, polyval(p_trend,trend_t), '--', 'Color',CLR_TREND, 'LineWidth',1.2, ...
-    'DisplayName', sprintf('Trend (%.4f%%/yr)', p_trend(1)));
+trend_future_curve = trend_cmp(end) + p_trend(1) * trend_decay_tau * ...
+    (1 - exp(-(1:forecast_horizon)' / trend_decay_tau));
+plot([years_all(:); future_years_vec(:)], [trend_cmp(:); trend_future_curve(:)], ...
+    '--', 'Color',CLR_TREND, 'LineWidth',1.2, ...
+    'DisplayName', sprintf('Damped trend (%.4f\\%%/yr initial)', p_trend(1)));
 plot(future_years_vec, yF, 'o-', 'LineWidth',1.8, 'MarkerSize',7, ...
     'Color',CLR_FCST, 'MarkerFaceColor',CLR_FCST, ...
     'DisplayName', sprintf('ARIMA (%s)', best_model_name));
@@ -616,7 +714,7 @@ end
 errorbar(years_all, annual_mean_hc, annual_se_hc, 'o', 'LineWidth',1.8, ...
     'MarkerSize',7, 'CapSize',4, ...
     'Color',CLR_CORAL, 'MarkerFaceColor',CLR_CORAL, 'DisplayName','Observed +/- SE');
-xlabel('Year'); ylabel('Hard Coral Cover (%)');
+xlabel('Year'); ylabel('Hard Coral Cover (\%)');
 title('Hard Coral Cover — Forecast');
 legend('Location','best','FontSize',9);
 ylim([0, max([annual_mean_hc(:); yF_upper(:)])*1.35 + 1]);
@@ -632,7 +730,7 @@ if results_sarimax.success
         'LineWidth',1.4, 'Color',CLR_ALGAE, 'DisplayName','Algae (proj)');
 end
 set(axf2, 'YColor','k');
-ylabel('Algae Cover (%)');
+ylabel('Algae Cover (\%)');
 
 yyaxis right;
 plot(years_all, annual_mean_hc, 'o-', 'LineWidth',1.8, 'MarkerSize',7, ...
@@ -640,7 +738,7 @@ plot(years_all, annual_mean_hc, 'o-', 'LineWidth',1.8, 'MarkerSize',7, ...
 plot(future_years_vec, yF, '--', 'LineWidth',1.4, 'Color',CLR_FCST, ...
     'DisplayName','Coral (fcst)');
 set(axf2, 'YColor','k');
-ylabel('Hard Coral Cover (%)');
+ylabel('Hard Coral Cover (\%)');
 xlabel('Year');
 title('Algae-Coral Dynamics');
 legend('Location','best','FontSize',9);
@@ -649,9 +747,7 @@ sg3 = sgtitle('Benthic Cover — ARIMA + SARIMAX Forecasts');
 sg3.FontSize = 13; sg3.Color = 'k'; sg3.FontWeight = 'normal';
 cleanFig(fig3);
 
-% ═════════════════════════════════════════════════════════════════════════
-% 9.  REGIONAL FORECASTS
-% ═════════════════════════════════════════════════════════════════════════
+
 fprintf('\nRegional analysis\n%s\n', repmat('-',1,50));
 
 sub_regions   = unique(transect_tbl.sub_region);
@@ -662,7 +758,9 @@ fprintf('%d regions with >= 3 survey years\n', length(model_regions));
 
 regional_results = struct();
 
-fig4 = figure('Position',[50 50 1600 900], 'Name','Regional Forecasts');
+if ~SHOW_ONLY_CORE_FIGURES
+    fig4 = figure('Position',[50 50 1600 900], 'Name','Regional Forecasts');
+end
 n_plot_rows = ceil(length(model_regions)/3);
 n_plot_cols = min(3, length(model_regions));
 
@@ -725,6 +823,9 @@ for s = 1:length(model_regions)
         yF_reg        = max(0, min(100, yF_det_reg + trend_ft));
         yF_reg_up     = min(100, max(0, yF_det_reg + trend_ft + 1.96*sqrt(yMSE_reg)));
         yF_reg_lo     = max(0,         yF_det_reg + trend_ft - 1.96*sqrt(yMSE_reg));
+        [yF_reg, yF_reg_lo, yF_reg_up] = enforce_ecological_bounds( ...
+            yF_reg, yF_reg_lo, yF_reg_up, y_reg(end), ...
+            collapse_threshold, resilience_band, low_cover_damping, min_cover_precollapse);
         future_yr_reg = sub_years(end)+1 : sub_years(end)+forecast_horizon;
 
         regional_results.(field).sub_region     = rname;
@@ -737,170 +838,174 @@ for s = 1:length(model_regions)
         regional_results.(field).forecast_lower = yF_reg_lo;
         regional_results.(field).forecast_years = future_yr_reg;
 
-        axr = subplot(n_plot_rows, n_plot_cols, s);
-        hold on;
-        fill([future_yr_reg, fliplr(future_yr_reg)], [yF_reg_up', fliplr(yF_reg_lo')], ...
-            CLR_FCST, 'FaceAlpha',0.12, 'EdgeColor','none', 'DisplayName','95% CI');
-        yr_all    = [sub_years(:); future_yr_reg(:)];
-        trend_all = polyval(p_reg, (1:length(yr_all))');
-        plot(yr_all, trend_all, '--', 'Color',CLR_TREND, 'LineWidth',1, 'DisplayName','Trend');
-        errorbar(sub_years, y_reg, se_reg, 'o-', 'LineWidth',1.6, 'MarkerSize',6, 'CapSize',3, ...
-            'Color',CLR_CORAL, 'MarkerFaceColor',CLR_CORAL, 'DisplayName','Observed');
-        plot(future_yr_reg, yF_reg, 'o-', 'LineWidth',1.6, 'MarkerSize',6, ...
-            'Color',CLR_FCST, 'MarkerFaceColor',CLR_FCST, 'DisplayName','Forecast');
-        xlabel('Year'); ylabel('Hard Coral (%)');
-        title(sprintf('%s  (n=%d)', strtrim(rname), round(mean(n_reg))));
-        lg_r = legend('Location','best','FontSize',7);
-        lg_r.Box = 'off'; lg_r.TextColor = 'k';
-        xlim([min(sub_years)-1, max(future_yr_reg)+0.5]);
-        ylim([0, max([y_reg(:); yF_reg_up(:)])*1.25 + 2]);
+        if ~SHOW_ONLY_CORE_FIGURES
+            axr = subplot(n_plot_rows, n_plot_cols, s);
+            hold on;
+            fill([future_yr_reg, fliplr(future_yr_reg)], [yF_reg_up', fliplr(yF_reg_lo')], ...
+                CLR_FCST, 'FaceAlpha',0.12, 'EdgeColor','none', 'DisplayName','95% CI');
+            yr_all    = [sub_years(:); future_yr_reg(:)];
+            trend_all = polyval(p_reg, (1:length(yr_all))');
+            plot(yr_all, trend_all, '--', 'Color',CLR_TREND, 'LineWidth',1, 'DisplayName','Trend');
+            errorbar(sub_years, y_reg, se_reg, 'o-', 'LineWidth',1.6, 'MarkerSize',6, 'CapSize',3, ...
+                'Color',CLR_CORAL, 'MarkerFaceColor',CLR_CORAL, 'DisplayName','Observed');
+            plot(future_yr_reg, yF_reg, 'o-', 'LineWidth',1.6, 'MarkerSize',6, ...
+                'Color',CLR_FCST, 'MarkerFaceColor',CLR_FCST, 'DisplayName','Forecast');
+            xlabel('Year'); ylabel('Hard Coral (%)');
+            title(sprintf('%s  (n=%d)', strtrim(rname), round(mean(n_reg))));
+            lg_r = legend('Location','best','FontSize',7);
+            lg_r.Box = 'off'; lg_r.TextColor = 'k';
+            xlim([min(sub_years)-1, max(future_yr_reg)+0.5]);
+            ylim([0, max([y_reg(:); yF_reg_up(:)])*1.25 + 2]);
+        end
 
     catch ME
         fprintf('    %s: %s\n', strtrim(rname), ME.message);
     end
 end
 
-sg4 = sgtitle('Hard Coral Cover — Regional Forecasts');
-sg4.FontSize = 13; sg4.Color = 'k'; sg4.FontWeight = 'normal';
-cleanFig(fig4);
-
-% ═════════════════════════════════════════════════════════════════════════
-% 10.  SPECIES COMPOSITION
-% ═════════════════════════════════════════════════════════════════════════
-top_species = ["ORB FAVE","SID SIDE","MON CAVE","POR ASTR","PSE STRI", ...
-               "COL NATA","STE INTE","ACR CERV","MIL SPE.","SID RADI"];
-top_species_names = {'O. faveolata','S. siderea','M. cavernosa','P. astreoides', ...
-                     'P. strigosa','C. natans','S. intersepta','A. cervicornis', ...
-                     'Millepora spp.','S. radians'};
-
-spp_annual = zeros(length(top_species), length(years_all));
-
-% ── FIX: re-trim COVER_CAT_CD on original data_all for species lookup ─────
-if ~isnumeric(data_all.HARDBOTTOM_P)
-    data_all.HARDBOTTOM_P = str2double(data_all.HARDBOTTOM_P);
+if ~SHOW_ONLY_CORE_FIGURES
+    sg4 = sgtitle('Hard Coral Cover — Regional Forecasts');
+    sg4.FontSize = 13; sg4.Color = 'k'; sg4.FontWeight = 'normal';
+    cleanFig(fig4);
 end
-data_all.COVER_CAT_CD = strtrim(data_all.COVER_CAT_CD);
 
-for sp = 1:length(top_species)
-    sp_rows = (data_all.COVER_CAT_CD == top_species(sp));
-    for y = 1:length(years_all)
-        mask = sp_rows & (data_all.YEAR == years_all(y));
-        if any(mask)
-            spp_annual(sp,y) = mean(data_all.HARDBOTTOM_P(mask),'omitnan');
+if SHOW_SPECIES_FIGURE
+
+
+    top_species = ["ORB FAVE","SID SIDE","MON CAVE","POR ASTR","PSE STRI", ...
+                   "COL NATA","STE INTE","ACR CERV","MIL SPE.","SID RADI"];
+    top_species_names = {'O. faveolata','S. siderea','M. cavernosa','P. astreoides', ...
+                         'P. strigosa','C. natans','S. intersepta','A. cervicornis', ...
+                         'Millepora spp.','S. radians'};
+
+    spp_annual = zeros(length(top_species), length(years_all));
+
+
+    if ~isnumeric(data_all.HARDBOTTOM_P)
+        data_all.HARDBOTTOM_P = str2double(data_all.HARDBOTTOM_P);
+    end
+    data_all.COVER_CAT_CD = strtrim(data_all.COVER_CAT_CD);
+
+    for sp = 1:length(top_species)
+        sp_rows = (data_all.COVER_CAT_CD == top_species(sp));
+        for y = 1:length(years_all)
+            mask = sp_rows & (data_all.YEAR == years_all(y));
+            if any(mask)
+                spp_annual(sp,y) = mean(data_all.HARDBOTTOM_P(mask),'omitnan');
+            end
         end
     end
-end
 
-colors_spp = [0.00 0.45 0.70; 0.90 0.62 0.00; 0.00 0.62 0.45; 0.80 0.14 0.15; ...
-              0.49 0.18 0.56; 0.34 0.71 0.91; 0.94 0.89 0.26; 0.10 0.10 0.10; ...
-              0.65 0.34 0.16; 0.56 0.56 0.56];
+    colors_spp = [0.00 0.45 0.70; 0.90 0.62 0.00; 0.00 0.62 0.45; 0.80 0.14 0.15; ...
+                  0.49 0.18 0.56; 0.34 0.71 0.91; 0.94 0.89 0.26; 0.10 0.10 0.10; ...
+                  0.65 0.34 0.16; 0.56 0.56 0.56];
 
-fig5 = figure('Position',[50 50 1400 580], 'Name','Species Composition');
+    fig5 = figure('Position',[50 50 1400 580], 'Name','Species Composition');
 
-subplot(1,2,1);
-area(years_all, spp_annual');
-legend(top_species_names, 'Location','eastoutside', 'FontSize',8);
-xlabel('Year'); ylabel('Mean Cover (pts)');
-title('Composition — Stacked');
-xlim([years_all(1)-0.5, years_all(end)+0.5]);
+    subplot(1,2,1);
+    area(years_all, spp_annual');
+    legend(top_species_names, 'Location','eastoutside', 'FontSize',8);
+    xlabel('Year'); ylabel('Mean Cover (pts)');
+    title('Composition — Stacked');
+    xlim([years_all(1)-0.5, years_all(end)+0.5]);
 
-subplot(1,2,2);
-hold on;
-for sp = 1:length(top_species)
-    if any(spp_annual(sp,:) > 0)
-        plot(years_all, spp_annual(sp,:), 'o-', 'LineWidth',1.6, 'MarkerSize',6, ...
-            'Color',colors_spp(sp,:), 'MarkerFaceColor',colors_spp(sp,:), ...
-            'DisplayName',top_species_names{sp});
+    subplot(1,2,2);
+    hold on;
+    for sp = 1:length(top_species)
+        if any(spp_annual(sp,:) > 0)
+            plot(years_all, spp_annual(sp,:), 'o-', 'LineWidth',1.6, 'MarkerSize',6, ...
+                'Color',colors_spp(sp,:), 'MarkerFaceColor',colors_spp(sp,:), ...
+                'DisplayName',top_species_names{sp});
+        end
     end
+    xlabel('Year'); ylabel('Mean Cover (pts)');
+    title('Per-Species Trends');
+    legend('Location','eastoutside','FontSize',8);
+    xlim([years_all(1)-0.5, years_all(end)+0.5]);
+
+    sg5 = sgtitle('Hard Coral Species Composition');
+    sg5.FontSize = 13; sg5.Color = 'k'; sg5.FontWeight = 'normal';
+    cleanFig(fig5);
 end
-xlabel('Year'); ylabel('Mean Cover (pts)');
-title('Per-Species Trends');
-legend('Location','eastoutside','FontSize',8);
-xlim([years_all(1)-0.5, years_all(end)+0.5]);
 
-sg5 = sgtitle('Hard Coral Species Composition');
-sg5.FontSize = 13; sg5.Color = 'k'; sg5.FontWeight = 'normal';
-cleanFig(fig5);
+if ~SHOW_ONLY_CORE_FIGURES
 
-% ═════════════════════════════════════════════════════════════════════════
-% 11.  RESIDUAL DIAGNOSTICS
-% ═════════════════════════════════════════════════════════════════════════
-y_hat     = X_panel * b_ols;
-res_panel = y_panel - y_hat;
 
-fig6 = figure('Position',[50 50 1400 720], 'Name','Residual Diagnostics');
+    y_hat     = X_panel * b_ols;
+    res_panel = y_panel - y_hat;
 
-axd1 = subplot(2,3,1);
-scatter(y_hat, res_panel, 14, CLR_TREND, 'filled', 'MarkerFaceAlpha',0.3);
-yline(0, '--', 'Color',CLR_FCST, 'LineWidth',1.4);
-xlabel('Fitted (%)'); ylabel('Residuals (%)');
-title('Panel OLS — Residuals vs. Fitted');
+    fig6 = figure('Position',[50 50 1400 720], 'Name','Residual Diagnostics');
 
-axd2 = subplot(2,3,2);
-histogram(res_panel, 40, 'Normalization','pdf', 'FaceColor',CLR_LGRAY, 'EdgeColor','none');
-hold on;
-xr = linspace(min(res_panel), max(res_panel), 100);
-plot(xr, normpdf(xr, mean(res_panel), std(res_panel)), '-', 'Color',CLR_FCST, 'LineWidth',1.8);
-xlabel('Residuals (%)'); ylabel('Density');
-title('Panel OLS — Residual Distribution');
-legend('Data','Normal','Location','best');
+    axd1 = subplot(2,3,1);
+    scatter(y_hat, res_panel, 14, CLR_TREND, 'filled', 'MarkerFaceAlpha',0.3);
+    yline(0, '--', 'Color',CLR_FCST, 'LineWidth',1.4);
+    xlabel('Fitted (%)'); ylabel('Residuals (%)');
+    title('Panel OLS — Residuals vs. Fitted');
 
-axd3 = subplot(2,3,3);
-qqplot(res_panel);
-title('Panel OLS — Q-Q Plot');
-try
-    axd3.Children(1).Color = CLR_CORAL;
-    axd3.Children(2).Color = CLR_TREND;
-catch; end
+    axd2 = subplot(2,3,2);
+    histogram(res_panel, 40, 'Normalization','pdf', 'FaceColor',CLR_LGRAY, 'EdgeColor','none');
+    hold on;
+    xr = linspace(min(res_panel), max(res_panel), 100);
+    plot(xr, normpdf(xr, mean(res_panel), std(res_panel)), '-', 'Color',CLR_FCST, 'LineWidth',1.8);
+    xlabel('Residuals (%)'); ylabel('Density');
+    title('Panel OLS — Residual Distribution');
+    legend('Data','Normal','Location','best');
 
-if ~isempty(res_arima)
-    axd4 = subplot(2,3,4);
-    stem(years_all, res_arima, 'Color',CLR_CORAL, 'LineWidth',1.4, ...
-        'MarkerFaceColor',CLR_CORAL, 'MarkerSize',5);
-    yline(0, '--', 'Color',CLR_TREND, 'LineWidth',1);
-    xlabel('Year'); ylabel('Residuals (%)');
-    title(sprintf('ARIMA Residuals — %s', best_model_name));
+    axd3 = subplot(2,3,3);
+    qqplot(res_panel);
+    title('Panel OLS — Q-Q Plot');
+    try
+        axd3.Children(1).Color = CLR_CORAL;
+        axd3.Children(2).Color = CLR_TREND;
+    catch; end
 
-    axd5 = subplot(2,3,5);
-    if length(res_arima) >= 4
-        autocorr(res_arima);
-        title('ARIMA Residual ACF');
+    if ~isempty(res_arima)
+        axd4 = subplot(2,3,4);
+        stem(years_all, res_arima, 'Color',CLR_CORAL, 'LineWidth',1.4, ...
+            'MarkerFaceColor',CLR_CORAL, 'MarkerSize',5);
+        yline(0, '--', 'Color',CLR_TREND, 'LineWidth',1);
+        xlabel('Year'); ylabel('Residuals (%)');
+        title(sprintf('ARIMA Residuals — %s', best_model_name));
+
+        axd5 = subplot(2,3,5);
+        if length(res_arima) >= 4
+            autocorr(res_arima);
+            title('ARIMA Residual ACF');
+        else
+            axis off; title('ACF (< 4 obs)');
+        end
     else
-        axis off; title('ACF (< 4 obs)');
+        subplot(2,3,4); axis off;
+        subplot(2,3,5); axis off;
     end
-else
-    subplot(2,3,4); axis off;
-    subplot(2,3,5); axis off;
+
+    subplot(2,3,6);
+    axis off;
+    lb_str = 'n/a';
+    if ~isnan(h_lb)
+        lb_str = sprintf('p = %.4f  [%s]', p_lb, ternary(h_lb==0,'pass','fail'));
+    end
+    text(0.05, 0.97, sprintf([ ...
+        'Summary\n\n' ...
+        'Panel OLS  (N = %d)\n' ...
+        '  R2            %.4f\n' ...
+        '  mean resid    %.4f%%\n' ...
+        '  std  resid    %.4f%%\n\n' ...
+        'ARIMA  %s\n' ...
+        '  trend         %.4f%%/yr\n' ...
+        '  AIC           %.3f\n' ...
+        '  Ljung-Box     %s'], ...
+        sum(use_idx), stats_ols(1), mean(res_panel), std(res_panel), ...
+        best_model_name, p_trend(1), aic_vals(best_model_idx), lb_str), ...
+        'Units','normalized', 'VerticalAlignment','top', ...
+        'FontSize',9, 'FontName','Courier', 'Color','k');
+
+    sg6 = sgtitle('Residual Diagnostics');
+    sg6.FontSize = 13; sg6.Color = 'k'; sg6.FontWeight = 'normal';
+    cleanFig(fig6);
 end
 
-subplot(2,3,6);
-axis off;
-lb_str = 'n/a';
-if ~isnan(h_lb)
-    lb_str = sprintf('p = %.4f  [%s]', p_lb, ternary(h_lb==0,'pass','fail'));
-end
-text(0.05, 0.97, sprintf([ ...
-    'Summary\n\n' ...
-    'Panel OLS  (N = %d)\n' ...
-    '  R2            %.4f\n' ...
-    '  mean resid    %.4f%%\n' ...
-    '  std  resid    %.4f%%\n\n' ...
-    'ARIMA  %s\n' ...
-    '  trend         %.4f%%/yr\n' ...
-    '  AIC           %.3f\n' ...
-    '  Ljung-Box     %s'], ...
-    sum(use_idx), stats_ols(1), mean(res_panel), std(res_panel), ...
-    best_model_name, p_trend(1), aic_vals(best_model_idx), lb_str), ...
-    'Units','normalized', 'VerticalAlignment','top', ...
-    'FontSize',9, 'FontName','Courier', 'Color','k');
 
-sg6 = sgtitle('Residual Diagnostics');
-sg6.FontSize = 13; sg6.Color = 'k'; sg6.FontWeight = 'normal';
-cleanFig(fig6);
-
-% ═════════════════════════════════════════════════════════════════════════
-% 12.  SUMMARY
-% ═════════════════════════════════════════════════════════════════════════
 fprintf('\n%s\n', repmat('=',1,72));
 fprintf('Forecast summary\n');
 fprintf('%s\n', repmat('=',1,72));
@@ -933,9 +1038,7 @@ for s = 1:length(model_regions)
     end
 end
 
-% ═════════════════════════════════════════════════════════════════════════
-% 13.  EXPORT
-% ═════════════════════════════════════════════════════════════════════════
+
 fprintf('\nWriting CSVs\n%s\n', repmat('-',1,50));
 
 global_tbl = table(future_years_vec', yF, yF_lower, yF_upper, ...
@@ -946,8 +1049,15 @@ if results_sarimax.success
     global_tbl.SARIMAX_Upper       = results_sarimax.forecast_upper;
     global_tbl.Projected_Algae_Pct = results_sarimax.algae_forecast;
 end
-writetable(global_tbl, 'benthic_cover_forecast.csv');
-fprintf('  benthic_cover_forecast.csv\n');
+forecastPath = fullfile(scriptDir, 'benthic_cover_forecast.csv');
+writetable(global_tbl, forecastPath);
+fprintf('  %s\n', forecastPath);
+
+obs_tbl = table(years_all(:), annual_mean_hc(:), annual_mean_alg(:), annual_mean_spo(:), ...
+    'VariableNames', {'Year','Observed_HardCoral_Pct','Observed_Algae_Pct','Observed_Sponge_Pct'});
+observedPath = fullfile(scriptDir, 'benthic_cover_observed_annual.csv');
+writetable(obs_tbl, observedPath);
+fprintf('  %s\n', observedPath);
 
 for s = 1:length(model_regions)
     field = matlab.lang.makeValidName(model_regions(s));
@@ -959,14 +1069,15 @@ for s = 1:length(model_regions)
             'VariableNames',{'Year','Forecast_HardCoral_Pct','Lower_95CI','Upper_95CI'});
         fname = sprintf('benthic_forecast_%s.csv', ...
             strrep(strtrim(model_regions(s)),' ','_'));
-        writetable(reg_tbl, fname);
-        fprintf('  %s\n', fname);
+        fpath = fullfile(scriptDir, fname);
+        writetable(reg_tbl, fpath);
+        fprintf('  %s\n', fpath);
     end
 end
 
 writetable(table(coef_names', b_ols, 'VariableNames',{'Predictor','Coefficient'}), ...
-    'benthic_panel_regression_coefficients.csv');
-fprintf('  benthic_panel_regression_coefficients.csv\n');
+    fullfile(scriptDir, 'benthic_panel_regression_coefficients.csv'));
+fprintf('  %s\n', fullfile(scriptDir, 'benthic_panel_regression_coefficients.csv'));
 
 if p_trend(1) < 0
     fprintf('\nDeclining trend (%.4f%%/yr)\n', p_trend(1));

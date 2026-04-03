@@ -2,7 +2,7 @@ clc;
 clear;
 close all;
 
-% ── Figure defaults ───────────────────────────────────────────────────────
+
 set(groot, 'defaultAxesColor',       'w');
 set(groot, 'defaultFigureColor',     'w');
 set(groot, 'defaultAxesFontName',    'Helvetica');
@@ -15,7 +15,7 @@ CLR_ALGAE  = [0.13 0.60 0.32];
 CLR_SPONGE = [0.90 0.62 0.00];
 CLR_TREND  = [0.30 0.30 0.30];
 
-% ── Styling helper ────────────────────────────────────────────────────────
+
 function cleanFig(fig)
     for ax = findall(fig, 'Type', 'axes')'
         set(ax, 'Box','off', 'TickDir','out', 'LineWidth',0.9, ...
@@ -34,9 +34,7 @@ function cleanFig(fig)
     set(fig, 'Color','w');
 end
 
-% ═════════════════════════════════════════════════════════════════════════
-% 1.  LOAD DATA  (same logic as main script)
-% ═════════════════════════════════════════════════════════════════════════
+
 folderPath = '../../data/raw/CORIS_DATA/';
 files = dir(fullfile(folderPath, '**', '*Benthic*'));
 if isempty(files)
@@ -70,7 +68,7 @@ end
 data_all  = vertcat(raw_tables{:});
 col_names = data_all.Properties.VariableNames;
 
-% ── Numeric casts ─────────────────────────────────────────────────────────
+
 num_cols = {'YEAR','HARDBOTTOM_P','latitude','longitude','MIN_DEPTH', ...
             'MAX_DEPTH','PROT','WTD_RUG','STATION_NR'};
 n_data = height(data_all);
@@ -83,7 +81,7 @@ for nc = 1:length(num_cols)
     data_all.(col) = str2double(v);
 end
 
-% ── Taxonomy codes ────────────────────────────────────────────────────────
+
 hard_coral_codes = [ ...
     "ACR CERV","ACR PALM","AGA AGAR","AGA FRAG","AGA HUMI","AGA LAMA","AGA SPE.", ...
     "COL NATA","COL SPE.","DEN CYLI","DIC STOK","DIP LABY","DIP SPE.","EUS FAST", ...
@@ -100,9 +98,7 @@ algae_codes = [ ...
 
 sponge_codes = ["SPO OTHE","CLI SPE."];
 
-% ═════════════════════════════════════════════════════════════════════════
-% 2.  BUILD TRANSECT TABLE
-% ═════════════════════════════════════════════════════════════════════════
+
 data_all = data_all(~isnan(data_all.YEAR), :);
 data_all.COVER_CAT_CD  = strtrim(data_all.COVER_CAT_CD);
 if ~isnumeric(data_all.HARDBOTTOM_P)
@@ -169,18 +165,15 @@ TT = TT(~isnan(TT.depth_m) & TT.depth_m > 0, :);
 years_all = sort(unique(TT.year));
 years_all = years_all(~isnan(years_all));
 
-% ── Annual means for grid interpolation ───────────────────────────────────
+
 ann_hc  = arrayfun(@(y) mean(TT.hard_coral(TT.year==y),'omitnan'), years_all);
 ann_alg = arrayfun(@(y) mean(TT.algae(TT.year==y),     'omitnan'), years_all);
 ann_spo = arrayfun(@(y) mean(TT.sponge(TT.year==y),    'omitnan'), years_all);
 
-% ═════════════════════════════════════════════════════════════════════════
-% 3.  FIGURE A — Global 3D: Hard Coral + Algae + Sponge vs Time
-%     Three panels: 3D scatter, surface interpolation, time-ribbon view
-% ═════════════════════════════════════════════════════════════════════════
+
 figA = figure('Position',[30 30 1500 500], 'Name','3D Benthic Cover — Global');
 
-% ── Panel A1: 3D scatter (individual transects), colored by depth ─────────
+
 axA1 = subplot(1,3,1);
 scatter3(TT.year, TT.algae, TT.hard_coral, 12, TT.depth_m, ...
     'filled', 'MarkerFaceAlpha', 0.35);
@@ -191,15 +184,15 @@ title('Transect Scatter');
 view(-35, 25);
 grid on;
 
-% ── Panel A2: Interpolated surface — Coral ~ f(Algae, Year) ──────────────
+
 axA2 = subplot(1,3,2);
 
-% Build a 2-D grid over (year, algae) and interpolate coral cover onto it
+
 year_grid_vec = linspace(min(TT.year), max(TT.year), 60);
 alg_grid_vec  = linspace(0, prctile(TT.algae, 97), 60);
 [YR_grid, ALG_grid] = meshgrid(year_grid_vec, alg_grid_vec);
 
-% Use scattered interpolant (natural neighbor, extrapolate with nearest)
+
 valid_pts = ~isnan(TT.hard_coral) & ~isnan(TT.algae);
 F_interp  = scatteredInterpolant(TT.year(valid_pts), TT.algae(valid_pts), ...
                                   TT.hard_coral(valid_pts), ...
@@ -216,10 +209,10 @@ view(-40, 30);
 grid on;
 shading interp;
 
-% ── Panel A3: Ribbon plot — stacked annual covers through time ────────────
+
 axA3 = subplot(1,3,3);
 
-% Build (year × cover_type) ribbon: coral / algae / sponge stacked
+
 ribbon_data = [ann_hc(:), ann_alg(:), ann_spo(:)];
 Y_ribbon    = repmat(years_all(:), 1, 3);
 
@@ -227,7 +220,7 @@ ribbon_colors = {CLR_CORAL, CLR_ALGAE, CLR_SPONGE};
 ribbon_labels = {'Hard Coral','Algae','Sponge'};
 hold(axA3, 'on');
 for rb = 1:3
-    % Offset each ribbon slightly in Y for a layered 3D look
+
     y_offset = (rb-1) * 0.5;
     z_vals   = ribbon_data(:, rb);
     x_lo     = Y_ribbon(:,rb);
@@ -241,7 +234,7 @@ for rb = 1:3
         fill3(xpatch, ypatch, zpatch, ribbon_colors{rb}, ...
             'FaceAlpha', 0.75, 'EdgeColor', 'none');
     end
-    % Top edge line
+
     plot3(years_all, repmat(y_offset,size(years_all)), z_hi, ...
         '-', 'Color', ribbon_colors{rb}*0.7, 'LineWidth', 1.5, ...
         'DisplayName', ribbon_labels{rb});
@@ -257,11 +250,7 @@ sgtA = sgtitle('Benthic Cover 3D — Coral | Algae | Sponge × Time');
 sgtA.FontSize = 13; sgtA.Color = 'k'; sgtA.FontWeight = 'normal';
 cleanFig(figA);
 
-% ═════════════════════════════════════════════════════════════════════════
-% 4.  FIGURE B — Per-Region 3D scatter: one subplot per region
-%     X = Year, Y = Algae Cover, Z = Hard Coral Cover
-%     Points colored by sponge cover
-% ═════════════════════════════════════════════════════════════════════════
+
 sub_regions  = unique(TT.sub_region);
 sub_regions  = sub_regions(strtrim(sub_regions) ~= "");
 sub_yr_count = arrayfun(@(s) ...
@@ -288,7 +277,7 @@ if n_reg > 0
         cb_r = colorbar; cb_r.Color = 'k';
         cb_r.Label.String = 'Sponge (%)';
 
-        % Annual mean trajectory line
+
         sub_years  = sort(unique(sub_d.year));
         mean_hc_r  = arrayfun(@(y) mean(sub_d.hard_coral(sub_d.year==y),'omitnan'), sub_years);
         mean_alg_r = arrayfun(@(y) mean(sub_d.algae(sub_d.year==y),     'omitnan'), sub_years);
@@ -309,10 +298,7 @@ if n_reg > 0
     cleanFig(figB);
 end
 
-% ═════════════════════════════════════════════════════════════════════════
-% 5.  FIGURE C — Animated 3D trajectory (saves as GIF if desired)
-%     Rotating view of the global interpolated surface
-% ═════════════════════════════════════════════════════════════════════════
+
 figC = figure('Position',[80 80 900 650], 'Name','3D Trajectory — Rotating');
 
 axC = axes(figC);
@@ -321,7 +307,7 @@ colormap(axC, parula); shading interp;
 cb3 = colorbar; cb3.Label.String = 'Hard Coral Cover (%)'; cb3.Color = 'k';
 hold(axC, 'on');
 
-% Overlay annual mean path
+
 plot3(years_all, ann_alg, ann_hc, 'ko-', 'LineWidth', 2.5, ...
     'MarkerSize', 8, 'MarkerFaceColor', [0.85 0.12 0.12], 'DisplayName','Annual mean');
 
@@ -333,26 +319,7 @@ grid on;
 view(-40, 28);
 cleanFig(figC);
 
-% Optional: uncomment the block below to export a rotating GIF
-% -----------------------------------------------------------
-% gif_path = 'benthic_3d_rotating.gif';
-% for az = -40:2:320
-%     view(axC, az, 28);
-%     drawnow;
-%     frame = getframe(figC);
-%     im    = frame2im(frame);
-%     [A,map] = rgb2ind(im,256);
-%     if az == -40
-%         imwrite(A, map, gif_path, 'gif', 'LoopCount',Inf, 'DelayTime',0.05);
-%     else
-%         imwrite(A, map, gif_path, 'gif', 'WriteMode','append', 'DelayTime',0.05);
-%     end
-% end
-% fprintf('GIF saved: %s\n', gif_path);
 
-% ═════════════════════════════════════════════════════════════════════════
-% 6.  PRINT SUMMARY
-% ═════════════════════════════════════════════════════════════════════════
 fprintf('\n%s\n', repmat('=',1,60));
 fprintf('3D Visualisation Summary\n');
 fprintf('%s\n', repmat('=',1,60));

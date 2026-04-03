@@ -8,22 +8,19 @@ from pathlib import Path
 outdir = Path("./output")
 outdir.mkdir(parents=True, exist_ok=True)
 
-# -----------------------------
-# 1) Reconstruct / extend loss paths through 2100
-# -----------------------------
+                               
 years = np.arange(2024, 2101)
 
-# Paper-quoted annual losses through 2050
+                                         
 years_anchor = np.array([2024, 2026, 2028, 2030, 2035, 2040, 2045, 2050])
-wave_anchor = np.array([685.6, 710.9, 733.1, 752.5, 790.0, 814.9, 830.6, 834.3])   # $M
-tour_anchor = np.array([112.4, 121.2, 130.1, 138.9, 160.9, 183.0, 205.0, 212.5])   # $M
+wave_anchor = np.array([685.6, 710.9, 733.1, 752.5, 790.0, 814.9, 830.6, 834.3])       
+tour_anchor = np.array([112.4, 121.2, 130.1, 138.9, 160.9, 183.0, 205.0, 212.5])       
 
-# Interpolate to 2050
+                     
 wave = np.interp(np.clip(years, 2024, 2050), years_anchor, wave_anchor)
 tour = np.interp(np.clip(years, 2024, 2050), years_anchor, tour_anchor)
 
-# Extrapolate 2051-2100 toward paper-implied ceilings for visualization:
-# wave damage -> Dmax ≈ 850M, tourism -> baseline revenue ceiling ≈ 220.5M
+                                                                        
 mask = years > 2050
 k = 0.08
 wave[mask] = 850.0 - (850.0 - wave_anchor[-1]) * np.exp(-k * (years[mask] - 2050))
@@ -161,7 +158,7 @@ for source in ["Household income & jobs", "Tax base / public finance", "Migratio
 for u, v, w in edges:
     G.add_edge(u, v, weight=w)
 
-# Manual layered layout for a polished flow
+                                           
 layers = {}
 for n, d in G.nodes(data=True):
     layers.setdefault(d["layer"], []).append(n)
