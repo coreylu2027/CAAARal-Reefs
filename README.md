@@ -119,6 +119,27 @@ After the data is present and `requirements.txt` has been installed, judges can 
 - MATLAB code in `MATLAB/`
 - generated artifacts in `outputs/` and `MATLAB/Figures/`
 
+## MATLAB workflow (current)
+
+Core MATLAB modeling scripts live in `MATLAB/CoralReefDegradation/`.
+
+1. Run `benthicCoverARIMA.m`
+2. Run `WaveEnergy_Tourism.m`
+3. Run `AtharvSensitivity.m`
+
+These scripts are wired to share CSV inputs and outputs directly from `MATLAB/CoralReefDegradation/`.
+
+Key generated files include:
+
+- `MATLAB/CoralReefDegradation/benthic_cover_forecast.csv`
+- `MATLAB/CoralReefDegradation/benthic_cover_observed_annual.csv`
+- `MATLAB/CoralReefDegradation/reef_economic_loss_forecast.csv`
+- `MATLAB/CoralReefDegradation/reef_economic_loss_observed.csv`
+- `MATLAB/CoralReefDegradation/reef_economic_mitigation.csv`
+- `MATLAB/CoralReefDegradation/reef_economic_npv.csv`
+
+Generated MATLAB figures are saved to `MATLAB/Figures/`.
+
 ## Judge workflow summary
 
 For MTFC judges, the simplest workflow is:

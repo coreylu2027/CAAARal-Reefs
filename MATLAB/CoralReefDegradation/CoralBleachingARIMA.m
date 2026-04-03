@@ -2,11 +2,7 @@ clc;
 clear;
 close all;
 
-% Load all benthic cover files. Reading with TextType='string' forces every
-% column in every file to come in as a string array regardless of content.
-% This eliminates all type conflicts between regions before we even try to
-% stack the tables - MPA_NR numeric in Florida, string elsewhere, etc.
-% We cast to double after the full load is done.
+
 pwd
 folderPath = '../../data/raw/CORIS_DATA/';
 files = dir(fullfile(folderPath, '**', '*Benthic*'));
@@ -25,8 +21,7 @@ for f = 1:length(files)
     try
         tbl = readtable(fpath, 'VariableNamingRule', 'preserve', 'TextType', 'string');
 
-        % Drop a units row if one sits just below the header.
-        % A real data row will have a parseable number in YEAR; a units row won't.
+
         if height(tbl) > 0 && ismember('YEAR', tbl.Properties.VariableNames)
             if isnan(str2double(tbl.YEAR(1)))
                 tbl(1,:) = [];
@@ -45,8 +40,7 @@ if isempty(raw_tables)
     error('No files loaded successfully.');
 end
 
-% Pad every table to the union of all columns, then stack.
-% Missing columns get empty strings - safe because everything is string at this point.
+
 all_cols = unique([all_col_sets{:}], 'stable');
 
 for f = 1:length(raw_tables)
@@ -66,7 +60,7 @@ for c = 1:length(col_names)
     fprintf('  %d. %s\n', c, col_names{c});
 end
 
-% Cast numeric columns from string to double now that everything is stacked.
+
 num_cols = {'YEAR','HARDBOTTOM_P','SOFTBOTTOM_P','RUBBLE_P','latitude', ...
             'longitude','MIN_DEPTH','MAX_DEPTH','PROT','WTD_RUG','STATION_NR'};
 for nc = 1:length(num_cols)
@@ -76,7 +70,7 @@ for nc = 1:length(num_cols)
     end
 end
 
-% Hard coral species codes from the CRCP/AGRRA taxonomy
+
 hard_coral_codes = [
     "ACR CERV","ACR PALM","AGA AGAR","AGA FRAG","AGA HUMI","AGA LAMA","AGA SPE.", ...
     "COL NATA","COL SPE.","DEN CYLI","DIC STOK","DIP LABY","DIP SPE.","EUS FAST", ...
@@ -95,8 +89,7 @@ algae_codes = [
 
 sponge_codes = ["SPO OTHE","CLI SPE."];
 
-% Build transect IDs. All three ID columns are string arrays of the same
-% length as data_all, so find() always returns valid indices.
+
 n_rows = height(data_all);
 
 if ismember('PRIMARY_SAMPLE_UNIT', col_names)
@@ -105,7 +98,7 @@ else
     psu_col = repmat("0", n_rows, 1);
 end
 
-% STATION_NR was cast to double above - convert back to string for the ID only
+
 if ismember('STATION_NR', col_names)
     stn_col = string(data_all.STATION_NR);
 else
@@ -120,7 +113,7 @@ unique_transects = unique(transect_id);
 n_transects      = length(unique_transects);
 fprintf('\nUnique transects: %d\n', n_transects);
 
-% Pre-allocate transect-level summary
+
 T = struct();
 T.year        = zeros(n_transects, 1);
 T.psu         = strings(n_transects, 1);
@@ -178,7 +171,7 @@ end
 
 transect_tbl = struct2table(T);
 
-% Drop transects with no valid depth - needed for regression
+
 transect_tbl = transect_tbl(~isnan(transect_tbl.depth_m) & transect_tbl.depth_m > 0, :);
 fprintf('Transects with valid depth: %d\n', height(transect_tbl));
 
@@ -204,7 +197,7 @@ annual_se_hc    = arrayfun(@(y) std(transect_tbl.hard_coral(transect_tbl.year==y
 annual_mean_alg = arrayfun(@(y) mean(transect_tbl.algae(transect_tbl.year==y),'omitnan'), years_all);
 annual_mean_spo = arrayfun(@(y) mean(transect_tbl.sponge(transect_tbl.year==y),'omitnan'), years_all);
 
-% Raw time series overview
+
 figure('Position', [50 50 1400 800], 'Name', 'Raw Benthic Time Series');
 
 subplot(2,2,1);
@@ -255,7 +248,7 @@ grid on;
 
 sgtitle('Benthic Cover - Exploratory');
 
-% Panel regression: hard coral ~ year + depth + algae + protection
+
 fprintf('\nPanel regression...\n');
 
 year_base = min(years_all);
@@ -291,8 +284,7 @@ for c = 1:length(b_ols)
 end
 fprintf('  Trend: %.4f%% per year (covariate-adjusted)\n', b_ols(2));
 
-% ARIMA on annual means. With few survey years only AR(1), MA(1), and white
-% noise are viable - anything more complex will overfit.
+
 fprintf('\nARIMA on annual time series...\n');
 
 y_annual         = annual_mean_hc;
@@ -374,8 +366,7 @@ for f = 1:forecast_horizon
         future_years_vec(f), yF(f), yF_lower(f), yF_upper(f));
 end
 
-% ARIMAX: add algae as an exogenous regressor. Future algae is extrapolated
-% linearly - a reasonable short-horizon assumption.
+
 fprintf('\nARIMAX with algae as exogenous predictor...\n');
 
 results_arimax = struct();
@@ -433,7 +424,7 @@ catch ME
     results_arimax.model_name = 'ARIMA (ARIMAX fallback)';
 end
 
-% Regional breakdown - requires at least 3 survey years to fit a model
+
 fprintf('\nRegional analysis...\n');
 
 sub_regions   = unique(transect_tbl.sub_region);
@@ -521,7 +512,7 @@ end
 
 sgtitle('Hard Coral Cover - Regional ARIMA Forecasts');
 
-% Main forecast figure
+
 figure('Position', [50 50 1400 700], 'Name', 'Forecast');
 
 subplot(1,2,1);
@@ -570,7 +561,7 @@ grid on;
 
 sgtitle('Benthic Cover - ARIMA + ARIMAX Forecasts');
 
-% Species composition trends
+
 top_species = ["ORB FAVE","SID SIDE","MON CAVE","POR ASTR","PSE STRI", ...
                "COL NATA","STE INTE","ACR CERV","MIL SPE.","SID RADI"];
 top_species_names = {'O. faveolata','S. siderea','M. cavernosa','P. astreoides', ...
@@ -614,7 +605,7 @@ grid on; xlim([years_all(1)-0.5, years_all(end)+0.5]);
 
 sgtitle('Hard Coral Species Composition');
 
-% Residual diagnostics for both the panel OLS and ARIMA
+
 y_hat     = X_panel * b_ols;
 res_panel = y_panel - y_hat;
 
@@ -681,7 +672,7 @@ text(0.05, 0.95, sprintf([ ...
 
 sgtitle('Residual Diagnostics');
 
-% Summary to console
+
 fprintf('\n%s\n', repmat('-',1,72));
 fprintf('Forecast summary\n');
 fprintf('%s\n', repmat('-',1,72));
@@ -712,7 +703,7 @@ for s = 1:length(model_regions)
     end
 end
 
-% Export CSVs
+
 fprintf('\nExporting...\n');
 
 global_tbl = table(future_years_vec', yF, yF_lower, yF_upper, ...
