@@ -27,8 +27,23 @@ set(groot,'defaultAxesColor','w','defaultFigureColor','w', ...
     'defaultLegendBox','off','defaultLegendTextColor','k');
 
 
-scriptDir = fileparts(mfilename('fullpath'));
-repoRoot  = fileparts(fileparts(scriptDir));
+scriptPath = mfilename('fullpath');
+if isempty(scriptPath)
+    scriptPath = which('AtharvSensitivity');
+end
+if isempty(scriptPath) && usejava('desktop')
+    scriptPath = matlab.desktop.editor.getActiveFilename;
+end
+if isempty(scriptPath)
+    scriptDir = pwd;
+else
+    scriptDir = fileparts(scriptPath);
+end
+
+repoRoot = fileparts(fileparts(scriptDir));
+if ~isfolder(fullfile(repoRoot, 'MATLAB'))
+    repoRoot = fileparts(scriptDir);
+end
 
 % Keep sensitivity inputs synchronized with the benthic outputs generated in MATLAB/CoralReefDegradation.
 forecast_candidates = {
@@ -158,9 +173,9 @@ npv_M_lo = calc_npv(fcst_cover, k_base,           D_max_base,     M0_param*0.5, 
 npv_M_hi = calc_npv(fcst_cover, k_base,           D_max_base,     M0_param*1.5, r_base);
 
 
-pnames  = {'D_{max}  (coastal damage ceiling)', ...
-           'k  (wave attenuation coeff.)', ...
-           'M_0  (per-tourist output)'};
+pnames  = {'$D_{\max}$ (coastal damage ceiling)', ...
+           '$k$ (wave attenuation coeff.)', ...
+           '$M_0$ (per-tourist output)'};
 lo_vals = [npv_D_lo; npv_k_lo; npv_M_lo];
 hi_vals = [npv_D_hi; npv_k_hi; npv_M_hi];
 
@@ -208,11 +223,11 @@ for i = 1:3
          bar_clrs(i,:), 'FaceAlpha',0.88, 'EdgeColor','none');
 
     pad_t = ranges(1) * 0.015;
-    text(ax1, lo - pad_t, y_pos(i), sprintf('$%.0fM', lo), ...
+    text(ax1, lo - pad_t, y_pos(i), sprintf('\\$%.0fM', lo), ...
         'HorizontalAlignment','right','FontSize',9,'Color','k','FontName',FONT);
-    text(ax1, hi + pad_t, y_pos(i)+0.11, sprintf('$%.0fM', hi), ...
+    text(ax1, hi + pad_t, y_pos(i)+0.11, sprintf('\\$%.0fM', hi), ...
         'HorizontalAlignment','left','FontSize',9,'Color','k','FontName',FONT);
-    text(ax1, hi + 2.2*pad_t, y_pos(i)-0.11, sprintf('range  $%.0fM', ranges(i)), ...
+    text(ax1, hi + 2.2*pad_t, y_pos(i)-0.11, sprintf('range  \\$%.0fM', ranges(i)), ...
         'HorizontalAlignment','left','FontSize',8.5,'Color','k','FontName',FONT);
 end
 
@@ -220,7 +235,8 @@ end
 xline(ax1, NPV_base, '--', 'Color',C_REF, 'LineWidth',1.5);
 baseline_dx = ranges(1) * 0.08;
 text(ax1, NPV_base + 2.2*baseline_dx, 3+bht+0.20, sprintf('Baseline\n$%.0fM', NPV_base), ...
-    'HorizontalAlignment','left','FontSize',9,'Color',C_REF,'FontName',FONT);
+    'HorizontalAlignment','left','FontSize',9,'Color',C_REF,'FontName',FONT, ...
+    'Interpreter','none');
 
 
 text(ax1, max(hi_vals)*0.995, 0.55, ...
@@ -228,15 +244,16 @@ text(ax1, max(hi_vals)*0.995, 0.55, ...
     NPV_wave_base, 100*NPV_wave_base/NPV_base, ...
     NPV_tour_base, 100*NPV_tour_base/NPV_base), ...
     'HorizontalAlignment','right','FontSize',8.5,'Color',C_REF,'FontName',FONT, ...
-    'VerticalAlignment','bottom');
+    'VerticalAlignment','bottom','Interpreter','none');
 
 
 set(ax1, 'YTick', [1 2 3], ...
          'YTickLabel', {pnames{3}, pnames{2}, pnames{1}}, ...
-         'FontSize', 10.5, 'XColor','k','YColor','k', ...
+         'FontSize', 9.5, 'XColor','k','YColor','k', ...
          'Box','off','TickDir','out','Color','w');
+set(ax1, 'Units','normalized', 'Position',[0.30 0.14 0.66 0.78]);
 
-xlabel(ax1,'NPV of Total Economic Losses ($M)','FontSize',11,'Color','k','FontName',FONT);
+xlabel(ax1,'NPV of Total Economic Losses (\$M)','FontSize',11,'Color','k','FontName',FONT);
 title(ax1,'Tornado Sensitivity: NPV Impact of $\pm$50\% Parameter Variation', ...
     'FontSize',12,'FontWeight','normal','Color','k','FontName',FONT);
 
@@ -246,8 +263,9 @@ ylim(ax1, [0.4, 3.8]);
 sa_cleanFig(figSA1);
 
 
-r_vals     = [0.015, 0.03, 0.07];
-r_labels   = {'r = 1.5%', 'r = 3%', 'r = 7%'};
+r_vals       = [0.015, 0.03, 0.07];
+r_labels_tbl = {'r = 1.5%', 'r = 3%', 'r = 7%'};
+r_labels_lg  = {'r = 1.5\%', 'r = 3\%', 'r = 7\%'};
 scen_names = {'Status Quo', 'Hold Cover', 'Restoration'};
 
 cover_sq   = fcst_cover;
@@ -268,7 +286,7 @@ fprintf('%-12s  %-12s  %-12s  %-12s  %-12s  %-12s\n', ...
     'Rate','Status Quo','Hold Cover','Restoration','Save:Hold','Save:Rest');
 for ri = 1:3
     fprintf('%-12s  %-12.1f  %-12.1f  %-12.1f  %-12.1f  %-12.1f\n', ...
-        r_labels{ri}, npv_disc(ri,1), npv_disc(ri,2), npv_disc(ri,3), ...
+    r_labels_tbl{ri}, npv_disc(ri,1), npv_disc(ri,2), npv_disc(ri,3), ...
         npv_disc(ri,1)-npv_disc(ri,2), npv_disc(ri,1)-npv_disc(ri,3));
 end
 
@@ -288,10 +306,10 @@ ax2 = subplot(1,2,1); hold(ax2,'on');
 for ri = 1:3
     plot(ax2, fcst_years, cum_npv(ri,:), 'o-', ...
         'Color',r_clrs(ri,:),'MarkerFaceColor',r_clrs(ri,:), ...
-        'LineWidth',LW,'MarkerSize',MS-1,'DisplayName',r_labels{ri});
+    'LineWidth',LW,'MarkerSize',MS-1,'DisplayName',r_labels_lg{ri});
 end
 xlabel(ax2,'Year','FontSize',11,'Color','k','FontName',FONT);
-ylabel(ax2,'Cumulative Discounted Loss ($M)','FontSize',11,'Color','k','FontName',FONT);
+ylabel(ax2,'Cumulative Discounted Loss (\$M)','FontSize',11,'Color','k','FontName',FONT);
 title(ax2,'Cumulative NPV by Discount Rate (Status Quo)', ...
     'FontSize',12,'FontWeight','normal','Color','k','FontName',FONT);
 legend(ax2,'Location','northwest');
@@ -300,7 +318,7 @@ ylim(ax2,[0, max(cum_npv(:))*1.22]);
 
 for ri = 1:3
     text(ax2, fcst_years(end)+1.2, cum_npv(ri,end), ...
-        sprintf('$%.0fM', cum_npv(ri,end)), ...
+        sprintf('\\$%.0fM', cum_npv(ri,end)), ...
         'FontSize',8,'Color',r_clrs(ri,:),'FontName',FONT,'VerticalAlignment','middle');
 end
 xlim(ax2,[fcst_years(1)-0.5, fcst_years(end)+2.5]);
@@ -315,7 +333,7 @@ for ri = 1:3
     bh2.FaceColor   = r_clrs(ri,:);
     bh2.FaceAlpha   = 0.80;
     bh2.EdgeColor   = 'none';
-    bh2.DisplayName = r_labels{ri};
+    bh2.DisplayName = r_labels_lg{ri};
 end
 for ri = 1:3
     for sc = 1:3
@@ -334,13 +352,13 @@ annotation(figSA2,'textarrow', ...
 
 set(ax3,'XTick',x_grp,'XTickLabel',scen_names,'XTickLabelRotation',8, ...
     'Box','off','TickDir','out','XColor','k','YColor','k','FontName',FONT,'FontSize',11);
-ylabel(ax3,'NPV ($M)','FontSize',11,'Color','k','FontName',FONT);
+ylabel(ax3,'NPV (\$M)','FontSize',11,'Color','k','FontName',FONT);
 title(ax3,'NPV by Discount Rate and Mitigation Scenario', ...
     'FontSize',12,'FontWeight','normal','Color','k','FontName',FONT);
 legend(ax3,'Location','northeast');
 ylim(ax3,[0, max(npv_disc(:))*1.22]);
 
-sg2 = sgtitle('Sensitivity to Social Discount Rate (OMB A-4: 1.5%, 3%, 7%)');
+sg2 = sgtitle('Sensitivity to Social Discount Rate (OMB A-4: 1.5\%, 3\%, 7\%)');
 sg2.FontName = FONT; sg2.FontSize = 13; sg2.FontWeight = 'normal'; sg2.Color = 'k';
 sa_cleanFig(figSA2);
 
@@ -385,6 +403,40 @@ fprintf('%-28s  %-12.4f  %-16.2f  %-14.1f  %-14.1f  %-10.1f\n', ...
     calc_npv_wave(cover_pess,k_base,D_max_base,r_base), ...
     calc_npv_tour(cover_pess,M0_param,r_base), npv_pess);
 
+figuresDir = fullfile(repoRoot, 'MATLAB', 'Figures');
+if ~isfolder(figuresDir)
+    mkdir(figuresDir);
+end
+fprintf('Figures output directory: %s\n', figuresDir);
+
+pdf_sa1 = fullfile(figuresDir, 'atharv_sensitivity_tornado.pdf');
+pdf_sa2 = fullfile(figuresDir, 'atharv_sensitivity_discount_rates.pdf');
+try
+    exportgraphics(figSA1, pdf_sa1, 'ContentType','vector');
+catch
+    set(figSA1, 'PaperPositionMode','auto');
+    print(figSA1, pdf_sa1, '-dpdf', '-painters');
+end
+if isfile(pdf_sa1)
+    fprintf('  [OK] %s\n', pdf_sa1);
+else
+    warning('PDF was not written: %s', pdf_sa1);
+end
+try
+    exportgraphics(figSA2, pdf_sa2, 'ContentType','vector');
+catch
+    set(figSA2, 'PaperPositionMode','auto');
+    print(figSA2, pdf_sa2, '-dpdf', '-painters');
+end
+if isfile(pdf_sa2)
+    fprintf('  [OK] %s\n', pdf_sa2);
+else
+    warning('PDF was not written: %s', pdf_sa2);
+end
+fprintf('\nVector PDFs written:\n');
+fprintf('  %s\n', pdf_sa1);
+fprintf('  %s\n', pdf_sa2);
+
 fprintf('\n%s\n  DONE\n', repmat('=',1,60));
 fprintf('  SA1 Tornado (total NPV + channel breakdown)\n');
 fprintf('  SA2 Discount Rate (cumulative NPV + grouped bar)\n');
@@ -402,7 +454,12 @@ function sa_cleanFig(fig)
         ax.XLabel.Color   = 'k'; ax.XLabel.FontName  = 'Helvetica';
         ax.YLabel.Color   = 'k'; ax.YLabel.FontName  = 'Helvetica';
     end
-    set(findall(fig,'Type','text'),'Color','k','FontName','Helvetica');
+    all_txt = findall(fig,'Type','text');
+    set(all_txt,'Color','k','FontName','Helvetica');
+    try
+        set(all_txt,'Interpreter','latex');
+    catch
+    end
     for lg = findall(fig,'Type','legend')'
         set(lg,'Box','off','TextColor','k','Color','none','EdgeColor','none');
     end

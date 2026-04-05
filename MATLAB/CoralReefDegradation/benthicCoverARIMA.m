@@ -102,9 +102,20 @@ function [y, y_lower, y_upper] = enforce_ecological_bounds(y, y_lower, y_upper, 
     end
 end
 
+scriptPath = mfilename('fullpath');
+if isempty(scriptPath) && usejava('desktop')
+    scriptPath = matlab.desktop.editor.getActiveFilename;
+end
+if isempty(scriptPath)
+    scriptDir = pwd;
+else
+    scriptDir = fileparts(scriptPath);
+end
 
-scriptDir = fileparts(mfilename('fullpath'));
-repoRoot  = fileparts(fileparts(scriptDir));
+repoRoot = fileparts(fileparts(scriptDir));
+if ~isfolder(fullfile(repoRoot, 'MATLAB'))
+    repoRoot = fileparts(scriptDir);
+end
 
 % Prefer raw CORIS inputs and fall back to processed if raw is unavailable.
 corisRoots = {
@@ -366,7 +377,7 @@ if ~SHOW_ONLY_CORE_FIGURES
     errorbar(years_all, annual_mean_hc, annual_se_hc, 'o-', ...
         'LineWidth',1.8, 'MarkerSize',7, 'CapSize',4, ...
         'Color',CLR_CORAL, 'MarkerFaceColor',CLR_CORAL);
-    xlabel('Year'); ylabel('Hard Coral Cover (%)');
+    xlabel('Year'); ylabel('Hard Coral Cover (\%)');
     title('Hard Coral Cover');
     text(years_all, annual_mean_hc + annual_se_hc + 0.3, ...
         arrayfun(@(n) sprintf('n=%d',n), annual_n, 'UniformOutput',false), ...
@@ -378,7 +389,7 @@ if ~SHOW_ONLY_CORE_FIGURES
     hold on;
     plot(years_all, annual_mean_spo, 'd-', 'LineWidth',1.8, 'MarkerSize',7, ...
         'Color',CLR_SPONGE, 'MarkerFaceColor',CLR_SPONGE, 'DisplayName','Sponge');
-    xlabel('Year'); ylabel('Cover (%)');
+    xlabel('Year'); ylabel('Cover (\%)');
     title('Algae and Sponge Cover');
     legend('Location','best');
 
@@ -400,17 +411,17 @@ if ~SHOW_ONLY_CORE_FIGURES
         text(0.05, 0.92, 'r = N/A (zero variance)', 'Units','normalized', ...
             'FontSize',10, 'Color','k');
     end
-    xlabel('Algae Cover (%)'); ylabel('Hard Coral Cover (%)');
+    xlabel('Algae Cover (\%)'); ylabel('Hard Coral Cover (\%)');
     title('Coral vs. Algae');
 
     ax4 = subplot(2,2,4);
     scatter(transect_tbl.depth_m, transect_tbl.hard_coral, 18, transect_tbl.year, ...
         'filled', 'MarkerFaceAlpha',0.4);
     colormap(ax4, parula); colorbar;
-    xlabel('Depth (m)'); ylabel('Hard Coral Cover (%)');
+    xlabel('Depth (m)'); ylabel('Hard Coral Cover (\%)');
     title('Coral Cover vs. Depth');
 
-    sg1 = sgtitle('Benthic Cover — Exploratory Overview');
+    sg1 = sgtitle('Benthic Cover - Exploratory Overview');
     sg1.FontSize = 13; sg1.Color = 'k'; sg1.FontWeight = 'normal';
     cleanFig(fig1);
 end
@@ -459,8 +470,7 @@ y_detrended = y_annual - trend_cmp;
 
 fprintf('Linear trend: %.4f%%/yr\n', p_trend(1));
 
-if ~SHOW_ONLY_CORE_FIGURES
-    fig2 = figure('Position',[100 100 1200 700], 'Name','ACF / PACF');
+fig2 = figure('Position',[100 100 1200 700], 'Name','ACF / PACF');
 
     subplot(3,1,1);
     plot(years_all, y_annual, 'o-', 'Color',CLR_CORAL, 'LineWidth',1.8, ...
@@ -468,14 +478,14 @@ if ~SHOW_ONLY_CORE_FIGURES
     hold on;
     plot(years_all, trend_cmp, '--', 'Color',CLR_TREND, 'LineWidth',1.4, ...
         'DisplayName', sprintf('Trend (%.4f%%/yr)', p_trend(1)));
-    xlabel('Year'); ylabel('Hard Coral Cover (%)');
-    title('Annual Mean — Hard Coral with Trend');
+    xlabel('Year'); ylabel('Hard Coral Cover (\%)');
+    title('Annual Mean - Hard Coral with Trend');
     legend('Location','best');
 
     subplot(3,1,2);
     if length(y_detrended) >= 4
         autocorr(y_detrended);
-        title('ACF — Detrended Annual Series');
+        title('ACF - Detrended Annual Series');
     else
         axis off; title('ACF (< 4 observations)');
     end
@@ -483,15 +493,14 @@ if ~SHOW_ONLY_CORE_FIGURES
     subplot(3,1,3);
     if length(y_detrended) >= 4
         parcorr(y_detrended);
-        title('PACF — Detrended Annual Series');
+        title('PACF - Detrended Annual Series');
     else
         axis off; title('PACF (< 4 observations)');
     end
 
-    sg2 = sgtitle('ACF / PACF — Annual Hard Coral (Detrended)');
-    sg2.FontSize = 13; sg2.Color = 'k'; sg2.FontWeight = 'normal';
-    cleanFig(fig2);
-end
+sg2 = sgtitle('ACF / PACF - Annual Hard Coral (Detrended)');
+sg2.FontSize = 13; sg2.Color = 'k'; sg2.FontWeight = 'normal';
+cleanFig(fig2);
 
 
 fprintf('\nARIMA / SARIMA model selection\n%s\n', repmat('-',1,50));
@@ -715,7 +724,7 @@ errorbar(years_all, annual_mean_hc, annual_se_hc, 'o', 'LineWidth',1.8, ...
     'MarkerSize',7, 'CapSize',4, ...
     'Color',CLR_CORAL, 'MarkerFaceColor',CLR_CORAL, 'DisplayName','Observed +/- SE');
 xlabel('Year'); ylabel('Hard Coral Cover (\%)');
-title('Hard Coral Cover — Forecast');
+title('Hard Coral Cover - Forecast');
 legend('Location','best','FontSize',9);
 ylim([0, max([annual_mean_hc(:); yF_upper(:)])*1.35 + 1]);
 xlim([years_all(1)-1, future_years_vec(end)+0.5]);
@@ -743,7 +752,7 @@ xlabel('Year');
 title('Algae-Coral Dynamics');
 legend('Location','best','FontSize',9);
 
-sg3 = sgtitle('Benthic Cover — ARIMA + SARIMAX Forecasts');
+sg3 = sgtitle('Benthic Cover - ARIMA + SARIMAX Forecasts');
 sg3.FontSize = 13; sg3.Color = 'k'; sg3.FontWeight = 'normal';
 cleanFig(fig3);
 
@@ -850,7 +859,7 @@ for s = 1:length(model_regions)
                 'Color',CLR_CORAL, 'MarkerFaceColor',CLR_CORAL, 'DisplayName','Observed');
             plot(future_yr_reg, yF_reg, 'o-', 'LineWidth',1.6, 'MarkerSize',6, ...
                 'Color',CLR_FCST, 'MarkerFaceColor',CLR_FCST, 'DisplayName','Forecast');
-            xlabel('Year'); ylabel('Hard Coral (%)');
+            xlabel('Year'); ylabel('Hard Coral (\%)');
             title(sprintf('%s  (n=%d)', strtrim(rname), round(mean(n_reg))));
             lg_r = legend('Location','best','FontSize',7);
             lg_r.Box = 'off'; lg_r.TextColor = 'k';
@@ -864,7 +873,7 @@ for s = 1:length(model_regions)
 end
 
 if ~SHOW_ONLY_CORE_FIGURES
-    sg4 = sgtitle('Hard Coral Cover — Regional Forecasts');
+    sg4 = sgtitle('Hard Coral Cover - Regional Forecasts');
     sg4.FontSize = 13; sg4.Color = 'k'; sg4.FontWeight = 'normal';
     cleanFig(fig4);
 end
@@ -906,7 +915,7 @@ if SHOW_SPECIES_FIGURE
     area(years_all, spp_annual');
     legend(top_species_names, 'Location','eastoutside', 'FontSize',8);
     xlabel('Year'); ylabel('Mean Cover (pts)');
-    title('Composition — Stacked');
+    title('Composition - Stacked');
     xlim([years_all(1)-0.5, years_all(end)+0.5]);
 
     subplot(1,2,2);
@@ -939,21 +948,21 @@ if ~SHOW_ONLY_CORE_FIGURES
     axd1 = subplot(2,3,1);
     scatter(y_hat, res_panel, 14, CLR_TREND, 'filled', 'MarkerFaceAlpha',0.3);
     yline(0, '--', 'Color',CLR_FCST, 'LineWidth',1.4);
-    xlabel('Fitted (%)'); ylabel('Residuals (%)');
-    title('Panel OLS — Residuals vs. Fitted');
+    xlabel('Fitted (\%)'); ylabel('Residuals (\%)');
+    title('Panel OLS - Residuals vs. Fitted');
 
     axd2 = subplot(2,3,2);
     histogram(res_panel, 40, 'Normalization','pdf', 'FaceColor',CLR_LGRAY, 'EdgeColor','none');
     hold on;
     xr = linspace(min(res_panel), max(res_panel), 100);
     plot(xr, normpdf(xr, mean(res_panel), std(res_panel)), '-', 'Color',CLR_FCST, 'LineWidth',1.8);
-    xlabel('Residuals (%)'); ylabel('Density');
-    title('Panel OLS — Residual Distribution');
+    xlabel('Residuals (\%)'); ylabel('Density');
+    title('Panel OLS - Residual Distribution');
     legend('Data','Normal','Location','best');
 
     axd3 = subplot(2,3,3);
     qqplot(res_panel);
-    title('Panel OLS — Q-Q Plot');
+    title('Panel OLS - Q-Q Plot');
     try
         axd3.Children(1).Color = CLR_CORAL;
         axd3.Children(2).Color = CLR_TREND;
@@ -964,8 +973,8 @@ if ~SHOW_ONLY_CORE_FIGURES
         stem(years_all, res_arima, 'Color',CLR_CORAL, 'LineWidth',1.4, ...
             'MarkerFaceColor',CLR_CORAL, 'MarkerSize',5);
         yline(0, '--', 'Color',CLR_TREND, 'LineWidth',1);
-        xlabel('Year'); ylabel('Residuals (%)');
-        title(sprintf('ARIMA Residuals — %s', best_model_name));
+        xlabel('Year'); ylabel('Residuals (\%)');
+        title(sprintf('ARIMA Residuals - %s', best_model_name));
 
         axd5 = subplot(2,3,5);
         if length(res_arima) >= 4
@@ -1078,6 +1087,20 @@ end
 writetable(table(coef_names', b_ols, 'VariableNames',{'Predictor','Coefficient'}), ...
     fullfile(scriptDir, 'benthic_panel_regression_coefficients.csv'));
 fprintf('  %s\n', fullfile(scriptDir, 'benthic_panel_regression_coefficients.csv'));
+
+figuresDir = fullfile(repoRoot, 'MATLAB', 'Figures');
+if ~isfolder(figuresDir)
+    mkdir(figuresDir);
+end
+
+fprintf('\nVector PDFs written:\n');
+pdf_path = fullfile(figuresDir, 'benthic_cover_forecast_main.pdf');
+if ~isempty(fig3) && isgraphics(fig3)
+    exportgraphics(fig3, pdf_path, 'ContentType','vector');
+    fprintf('  %s\n', pdf_path);
+else
+    warning('Forecast figure (fig3) is not available; no PDF exported.');
+end
 
 if p_trend(1) < 0
     fprintf('\nDeclining trend (%.4f%%/yr)\n', p_trend(1));

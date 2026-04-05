@@ -1,5 +1,3 @@
-
-
 clc;
 clear;
 close all;
@@ -14,10 +12,10 @@ C_FCST   = [0.65 0.65 0.65];
 C_CI     = [0.85 0.85 0.85];
 
 FONT     = 'Helvetica';
-FS_AX    = 11;
-FS_TTL   = 13;
-FS_LBL   = 11;
-FS_TXT   =  9;
+FS_AX    = 10;
+FS_TTL   = 12;
+FS_LBL   = 10;
+FS_TXT   =  8;
 LW_MAIN  = 1.8;
 LW_REF   = 1.2;
 MS       = 6;
@@ -48,7 +46,6 @@ set(groot,'defaultLegendFontSize',  FS_TXT+1);
 function cleanFig(fig)
     set(fig, 'Color','w');
 
-
     all_ax = findall(fig, 'Type','axes');
     for ax = all_ax'
         set(ax, ...
@@ -65,10 +62,10 @@ function cleanFig(fig)
             'TickDir',        'out', ...
             'LineWidth',      0.9,  ...
             'FontName',       'Helvetica', ...
-            'FontSize',       11);
+            'FontSize',       10);
         ax.Title.Color      = 'k';
         ax.Title.FontName   = 'Helvetica';
-        ax.Title.FontSize   = 12;
+        ax.Title.FontSize   = 11;
         ax.Title.FontWeight = 'normal';
         ax.XLabel.Color     = 'k';
         ax.XLabel.FontName  = 'Helvetica';
@@ -76,10 +73,8 @@ function cleanFig(fig)
         ax.YLabel.FontName  = 'Helvetica';
     end
 
-
     all_txt = findall(fig, 'Type','text');
     set(all_txt, 'Color','k', 'FontName','Helvetica');
-
 
     all_lg = findall(fig, 'Type','legend');
     for lg = all_lg'
@@ -87,18 +82,16 @@ function cleanFig(fig)
             'Color','none', 'EdgeColor','none');
     end
 
-
     all_cb = findall(fig, 'Type','colorbar');
     for cb = all_cb'
         cb.Color     = 'k';
         cb.FontName  = 'Helvetica';
-        cb.FontSize  = 10;
+        cb.FontSize  = 9;
         if ~isempty(cb.Label)
             cb.Label.Color   = 'k';
             cb.Label.FontName = 'Helvetica';
         end
     end
-
 
     all_fig_txt = findall(fig, 'Type','text');
     set(all_fig_txt, 'Color','k', 'FontName','Helvetica');
@@ -115,23 +108,23 @@ function styleAx(ax, xl, yl, ttl)
     ax.ZColor   = 'k';
     ax.TickDir  = 'out';
     ax.FontName = 'Helvetica';
-    ax.FontSize = 11;
+    ax.FontSize = 10;
     if nargin >= 2 && ~isempty(xl)
-        xlabel(ax, xl, 'Color','k', 'FontName','Helvetica', 'FontSize',11);
+        xlabel(ax, xl, 'Color','k', 'FontName','Helvetica', 'FontSize',10, 'Interpreter','latex');
     end
     if nargin >= 3 && ~isempty(yl)
-        ylabel(ax, yl, 'Color','k', 'FontName','Helvetica', 'FontSize',11);
+        ylabel(ax, yl, 'Color','k', 'FontName','Helvetica', 'FontSize',10, 'Interpreter','latex');
     end
     if nargin >= 4 && ~isempty(ttl)
         title(ax, ttl, 'Color','k', 'FontName','Helvetica', ...
-            'FontSize',12, 'FontWeight','normal');
+            'FontSize',11, 'FontWeight','normal', 'Interpreter','latex');
     end
 end
 
 function sg = makeSgtitle(txt)
-    sg = sgtitle(txt);
+    sg = sgtitle(txt, 'Interpreter','latex');
     sg.FontName   = 'Helvetica';
-    sg.FontSize   = 13;
+    sg.FontSize   = 12;
     sg.FontWeight = 'normal';
     sg.Color      = 'k';
 end
@@ -144,10 +137,24 @@ function idx = marker_idx_from_years(years, step_years)
 end
 
 
-scriptDir = fileparts(mfilename('fullpath'));
-repoRoot  = fileparts(fileparts(scriptDir));
+scriptPath = mfilename('fullpath');
+if isempty(scriptPath)
+    scriptPath = which('WaveEnergy_Tourism');
+end
+if isempty(scriptPath) && usejava('desktop')
+    scriptPath = matlab.desktop.editor.getActiveFilename;
+end
+if isempty(scriptPath)
+    scriptDir = pwd;
+else
+    scriptDir = fileparts(scriptPath);
+end
 
-% Load shared benthic inputs from the MATLAB folder before falling back to analyzed data.
+repoRoot = fileparts(fileparts(scriptDir));
+if ~isfolder(fullfile(repoRoot, 'MATLAB'))
+    repoRoot = fileparts(scriptDir);
+end
+
 forecast_candidates = {
     fullfile(scriptDir, 'benthic_cover_forecast.csv'), ...
     fullfile(repoRoot, 'data', 'analyzed', 'benthic_cover_forecast.csv'), ...
@@ -207,13 +214,11 @@ else
     n_s       = length(obs_years);
     obs_cover = max(1, 28 - 0.55*(0:n_s-1) + 0.9*randn(1,n_s) + ...
                     1.3*sin(2*pi*(0:n_s-1)/4.8));
-    
 
     fcst_years = 2024:2100;
     n_f        = length(fcst_years);
-    
 
-    fcst_cover = max(1, obs_cover(end) - 0.55*(1:n_f)); 
+    fcst_cover = max(1, obs_cover(end) - 0.55*(1:n_f));
     fcst_lo    = max(0,   fcst_cover - 3.5);
     fcst_hi    = min(100, fcst_cover + 3.5);
     source_tag = 'Synthetic (standalone)';
@@ -342,13 +347,10 @@ NPV_hi    = sum((D_wave_hi(:)+dM_hi(:)) ./ (1+r_disc).^t_disc);
 
 cover_sq = fcst_cover;
 
-
-% Build policy scenarios with explicit assumptions for managed decline and delayed restoration.
 sq_decline_rate = max(0, (cover_sq(1) - cover_sq(end)) / max(1, n_fcst-1));
 hold_decline_fraction = 0.35;
 hold_decline_rate = hold_decline_fraction * sq_decline_rate;
 cover_hold = max(0, obs_cover(end) - hold_decline_rate * (0:n_fcst-1));
-
 
 restoration_lag_years = 6;
 rest_year_idx = 0:n_fcst-1;
@@ -386,7 +388,7 @@ fprintf('  Hold-cover decline fraction vs status quo: %.2f\n', hold_decline_frac
 fprintf('  Restoration implementation lag (years): %d\n', restoration_lag_years);
 
 
-sens_labels = {'k  (attenuation)', 'D_{max}  ($M/yr)', 'M_0  ($/tourist)'};
+sens_labels = {'$k$ (attenuation)', '$D_{\\mathrm{max}}$ (\$M/yr)', '$M_0$ (\$/tourist)'};
 mults       = [0.5, 1.0, 1.5];
 sens_npv    = zeros(3,3);
 for lv = 1:3
@@ -436,13 +438,16 @@ obs_mark_idx  = marker_idx_from_years(obs_years, plot_step_years);
 fcst_mark_idx = marker_idx_from_years(fcst_years, plot_step_years);
 all_mark_idx  = marker_idx_from_years(all_years, plot_step_years);
 xticks_vec    = obs_years(1):plot_step_years:fcst_years(end);
+xticks_vec    = xticks_vec(xticks_vec ~= 2098);
 if xticks_vec(end) ~= fcst_years(end)
     xticks_vec = [xticks_vec fcst_years(end)];
 end
 
 
+% =========================================================================
+% FIGURE E1 — Linear Tourism Model
+% =========================================================================
 figE1 = figure('Position',[60 60 1300 540],'Color','w');
-
 
 ax1 = subplot(1,2,1); hold(ax1,'on');
 fill([fcst_years, fliplr(fcst_years)], ...
@@ -451,18 +456,20 @@ fill([fcst_years, fliplr(fcst_years)], ...
 plot(ax1, all_years, T_t/1e6, 'o-', ...
     'Color',C_TOUR,'MarkerFaceColor',C_TOUR, ...
     'LineWidth',LW_MAIN,'MarkerSize',MS,'MarkerIndices',all_mark_idx, ...
-    'DisplayName','T(A) = T_0(A/A_0)');
+    'DisplayName','$T(A)=T_0\,(A/A_0)$');
 yline(ax1, T0/1e6, '--', 'Color',C_REF,'LineWidth',LW_REF, ...
-    'Label',sprintf('Baseline T_0 = %.1fM',T0/1e6), ...
-    'LabelHorizontalAlignment','left','HandleVisibility','off');
+    'HandleVisibility','off');
 xline(ax1, xbreak, ':', 'Color',C_REF,'LineWidth',1,'HandleVisibility','off');
-text(ax1, fcst_years(1)+0.1, T0/1e6*0.97, '\leftarrow forecast', ...
-    'FontSize',FS_TXT,'Color',C_REF,'FontName',FONT);
-styleAx(ax1,'Year','Tourists (millions / yr)','T(A) = T_0 \cdot (A / A_0)');
+text(ax1, fcst_years(1)+0.5, T0/1e6*0.97, '$\leftarrow$ forecast', ...
+    'FontSize',FS_TXT,'Color',C_REF,'FontName',FONT,'Interpreter','latex');
+styleAx(ax1,'Year','Tourists (millions\,yr$^{-1}$)','Visitor Count from Coral Cover');
 legend(ax1,'Location','southwest');
 xlim(ax1, xlim_all); ylim(ax1, [0, T0/1e6*1.18]);
 xticks(ax1, xticks_vec);
-
+text(ax1, fcst_years(end)-8, T0/1e6 * 1.035, ...
+    sprintf('$T_0 = %.1f\\,\\mathrm{M\\,yr}^{-1}$', T0/1e6), ...
+    'Interpreter','latex', 'FontSize',FS_TXT+1, ...
+    'Color',C_REF, 'HorizontalAlignment','right', 'VerticalAlignment','bottom');
 
 ax2 = subplot(1,2,2); hold(ax2,'on');
 fill([fcst_years, fliplr(fcst_years)], ...
@@ -471,25 +478,30 @@ fill([fcst_years, fliplr(fcst_years)], ...
 plot(ax2, all_years, M_t/1e6, 'o-', ...
     'Color',C_TOUR,'MarkerFaceColor',C_TOUR, ...
     'LineWidth',LW_MAIN,'MarkerSize',MS,'MarkerIndices',all_mark_idx, ...
-    'DisplayName','M(A) = T_0 M_0(A/A_0)');
+    'DisplayName','$M(A)=T_0 M_0\,(A/A_0)$');
 yline(ax2, M_base/1e6, '--','Color',C_REF,'LineWidth',LW_REF, ...
-    'Label',sprintf('M_{base} = $%.1fM',M_base/1e6), ...
-    'LabelHorizontalAlignment','left','HandleVisibility','off');
+    'HandleVisibility','off');
 xline(ax2, xbreak, ':', 'Color',C_REF,'LineWidth',1,'HandleVisibility','off');
-text(ax2, fcst_years(1)+0.1, M_base/1e6*0.97, '\leftarrow forecast', ...
-    'FontSize',FS_TXT,'Color',C_REF,'FontName',FONT);
-styleAx(ax2,'Year','Economic Output ($M / yr)','M(T) = T \cdot M_0');
+text(ax2, fcst_years(1)+0.5, M_base/1e6*0.97, '$\leftarrow$ forecast', ...
+    'FontSize',FS_TXT,'Color',C_REF,'FontName',FONT,'Interpreter','latex');
+styleAx(ax2,'Year','Economic Output (\$M\,yr$^{-1}$)','Economic Output from Visitor Count');
 legend(ax2,'Location','southwest');
 xlim(ax2, xlim_all); ylim(ax2, [0, M_base/1e6*1.18]);
 xticks(ax2, xticks_vec);
+text(ax2, fcst_years(end)-8, M_base/1e6 * 1.035, ...
+    sprintf('$M_{\\mathrm{base}} = %.1f\\,\\mathrm{\\$M\\,yr}^{-1}$', M_base/1e6), ...
+    'Interpreter','latex', 'FontSize',FS_TXT+1, ...
+    'Color',C_REF, 'HorizontalAlignment','right', 'VerticalAlignment','bottom');
 
-makeSgtitle('Linear Tourism Model: Visitor Count and Economic Output');
+makeSgtitle('Linear Tourism Model --- Visitor Count and Economic Output');
 cleanFig(figE1);
 
 
+% =========================================================================
+% FIGURE E2 — Annual Losses Decomposed
+% =========================================================================
 figE2 = figure('Position',[60 60 1300 560],'Color','w');
 y_ceil = max(L_hi/1e6)*1.35 + 2;
-
 
 ax3 = subplot(1,2,1); hold(ax3,'on');
 fill([fcst_years, fliplr(fcst_years)], [L_hi/1e6, fliplr(L_lo/1e6)], ...
@@ -504,17 +516,16 @@ plot(ax3, fcst_years, (D_wave_fcst+dM_fcst)/1e6, 'o--', ...
     'LineWidth',LW_MAIN,'MarkerSize',MS,'MarkerIndices',fcst_mark_idx, ...
     'DisplayName','Total (forecast)');
 xline(ax3, xbreak,':', 'Color',C_REF,'LineWidth',1,'HandleVisibility','off');
-text(ax3, fcst_years(1)+0.1, y_ceil*0.90, '\leftarrow forecast', ...
-    'FontSize',FS_TXT,'Color',C_REF,'FontName',FONT);
-styleAx(ax3,'Year','Annual Economic Loss ($M)','Stacked Annual Losses');
+text(ax3, fcst_years(1)+0.5, y_ceil*0.83, '$\leftarrow$ forecast', ...
+    'FontSize',FS_TXT,'Color',C_REF,'FontName',FONT,'Interpreter','latex');
+styleAx(ax3,'Year','Annual Economic Loss (\$M)','Stacked Annual Losses');
 legend(ax3, [ah(1),ah(2)], {'Wave Damage','Tourism Loss'}, 'Location','northwest');
 xlim(ax3, xlim_all); ylim(ax3, [0, y_ceil]);
 xticks(ax3, xticks_vec);
 
-
 ax4 = subplot(1,2,2); hold(ax4,'on');
 fill([fcst_years, fliplr(fcst_years)], [L_hi/1e6, fliplr(L_lo/1e6)], ...
-    C_CI,'EdgeColor','none','FaceAlpha',1,'DisplayName','95% CI');
+    C_CI,'EdgeColor','none','FaceAlpha',1,'DisplayName','95\% CI');
 plot(ax4, all_years, D_wave/1e6, 's-', ...
     'Color',C_WAVE,'MarkerFaceColor',C_WAVE, ...
     'LineWidth',1.4,'MarkerSize',MS-1,'MarkerIndices',all_mark_idx, ...
@@ -528,71 +539,90 @@ plot(ax4, all_years, L_total/1e6, 'o-', ...
     'LineWidth',LW_MAIN,'MarkerSize',MS,'MarkerIndices',all_mark_idx, ...
     'DisplayName','Total loss');
 xline(ax4, xbreak,':', 'Color',C_REF,'LineWidth',1,'HandleVisibility','off');
-text(ax4, fcst_years(1)+0.1, y_ceil*0.90, '\leftarrow forecast', ...
-    'FontSize',FS_TXT,'Color',C_REF,'FontName',FONT);
-styleAx(ax4,'Year','Annual Economic Loss ($M)','Loss Components');
+text(ax4, fcst_years(1)+0.5, y_ceil*0.83, '$\leftarrow$ forecast', ...
+    'FontSize',FS_TXT,'Color',C_REF,'FontName',FONT,'Interpreter','latex');
+styleAx(ax4,'Year','Annual Economic Loss (\$M)','Loss Components');
 legend(ax4,'Location','northwest');
 xlim(ax4, xlim_all); ylim(ax4, [0, y_ceil]);
 xticks(ax4, xticks_vec);
 
-makeSgtitle('Coral Reef Economic Losses: Wave Damage + Tourism Revenue');
+makeSgtitle('Coral Reef Economic Losses: Wave Damage $+$ Tourism Revenue');
 cleanFig(figE2);
 
 
+% =========================================================================
+% FIGURE E3 — Transfer Functions
+% =========================================================================
 figE3 = figure('Position',[60 60 1300 520],'Color','w');
 cover_range = linspace(0, A0*1.1, 500);
 dot_obs  = repmat(C_CORAL, n_obs,  1);
 dot_fcst = repmat(C_FCST,  n_fcst, 1);
 
-
 ax5 = subplot(1,3,1); hold(ax5,'on');
 plot(ax5, cover_range, T0.*(cover_range/A0)/1e6, '-', ...
     'Color',C_TOUR,'LineWidth',LW_MAIN+0.2);
-xline(ax5, A0,'--','Color',C_REF,'LineWidth',LW_REF);
+xline(ax5, A0,'--','Color',C_REF,'LineWidth',LW_REF, ...
+    'HandleVisibility','off');
 scatter(ax5, all_cover, T_t/1e6, 22, [dot_obs; dot_fcst], ...
     'filled','MarkerFaceAlpha',0.65);
 text(ax5, A0*0.08, T0/1e6*0.78, ...
-    sprintf('Slope = T_0/A_0 = %.3fM/%%', T0/A0/1e6), ...
-    'FontSize',FS_TXT,'Color',C_TOUR,'FontName',FONT);
-styleAx(ax5,'Hard Coral Cover (%)','Tourists (millions/yr)', ...
-    'T(A) = T_0 \cdot A / A_0');
+    sprintf('Slope $= T_0/A_0 = %.3f$ M per \\%%', T0/A0/1e6), ...
+    'FontSize',FS_TXT,'Color',C_TOUR,'FontName',FONT,'Interpreter','latex');
+styleAx(ax5,'Hard Coral Cover (\%)','Tourists (millions\,yr$^{-1}$)', ...
+    '$T(A) = T_0 \cdot A/A_0$');
 ylim(ax5,[0, T0/1e6*1.15]);
-
+yl5 = ylim(ax5);
+text(ax5, A0 + 0.45, yl5(2)*0.98, '$A_0$ baseline', ...
+    'FontSize',FS_TXT,'Color',C_REF,'FontName',FONT,'Interpreter','latex', ...
+    'BackgroundColor','w','Margin',1,'HorizontalAlignment','left');
 
 ax6 = subplot(1,3,2); hold(ax6,'on');
 dM_range = max(0, M_base*(1 - cover_range/A0)) / 1e6;
 plot(ax6, cover_range, dM_range, '-', ...
     'Color',C_TOUR,'LineWidth',LW_MAIN+0.2);
-xline(ax6, A0,'--','Color',C_REF,'LineWidth',LW_REF);
+xline(ax6, A0,'--','Color',C_REF,'LineWidth',LW_REF, ...
+    'HandleVisibility','off');
 scatter(ax6, all_cover, dM_t/1e6, 22, [dot_obs; dot_fcst], ...
     'filled','MarkerFaceAlpha',0.65);
-text(ax6, A0*0.08, max(dM_range)*0.72, ...
-    sprintf('Slope = -M_{base}/A_0\n= -$%.2fM/%%', M_base/A0/1e6), ...
-    'FontSize',FS_TXT,'Color',C_TOUR,'FontName',FONT);
-styleAx(ax6,'Hard Coral Cover (%)','Tourism Loss ($M/yr)', ...
-    '\DeltaM = M_{base}(1 - A/A_0)');
-
+text(ax6, 0.56, 0.90, ...
+    sprintf('Slope $= -M_{\\mathrm{base}}/A_0$\n$= -%.2f$ M per \\%%', M_base/A0/1e6), ...
+    'FontSize',FS_TXT,'Color',C_TOUR,'FontName',FONT,'Interpreter','latex', ...
+    'Units','normalized','BackgroundColor','w','Margin',1);
+styleAx(ax6,'Hard Coral Cover (\%)','Tourism Loss (\$M\,yr$^{-1}$)', ...
+    '$\Delta M = M_{\mathrm{base}}(1 - A/A_0)$');
+yl6 = ylim(ax6);
+text(ax6, A0 + 0.45, yl6(2)*0.98, '$A_0$ baseline', ...
+    'FontSize',FS_TXT,'Color',C_REF,'FontName',FONT,'Interpreter','latex', ...
+    'BackgroundColor','w','Margin',1,'HorizontalAlignment','left');
 
 ax7 = subplot(1,3,3); hold(ax7,'on');
 dE_range = max(0, (E_shore(cover_range) - E_ref_val) / E_ref_val);
 Dw_range = D_max .* (1 - exp(-lambda_dmg .* dE_range)) / 1e6;
 plot(ax7, cover_range, Dw_range, '-', ...
     'Color',C_WAVE,'LineWidth',LW_MAIN+0.2);
-xline(ax7, A0,'--','Color',C_REF,'LineWidth',LW_REF);
+xline(ax7, A0,'--','Color',C_REF,'LineWidth',LW_REF, ...
+    'HandleVisibility','off');
 scatter(ax7, all_cover, D_wave/1e6, 22, [dot_obs; dot_fcst], ...
     'filled','MarkerFaceAlpha',0.65);
-text(ax7, A0*0.08, max(Dw_range)*0.78, ...
-    sprintf('D_{max} = $%.0fM', D_max/1e6), ...
-    'FontSize',FS_TXT,'Color',C_WAVE,'FontName',FONT);
-styleAx(ax7,'Hard Coral Cover (%)','Wave Damage ($M/yr)', ...
-    'D_{wave} = D_{max}[1 - e^{-\lambda\DeltaE}]');
+text(ax7, 0.62, 0.90, ...
+    sprintf('$D_{\\mathrm{max}} = %.0f$\,M', D_max/1e6), ...
+    'FontSize',FS_TXT,'Color',C_WAVE,'FontName',FONT,'Interpreter','latex', ...
+    'Units','normalized','BackgroundColor','w','Margin',1);
+styleAx(ax7,'Hard Coral Cover (\%)','Wave Damage (\$M\,yr$^{-1}$)', ...
+    '$D_{\mathrm{wave}} = D_{\mathrm{max}}[1 - e^{-\lambda\,\Delta E}]$');
+yl7 = ylim(ax7);
+text(ax7, A0 + 0.45, yl7(2)*0.98, '$A_0$ baseline', ...
+    'FontSize',FS_TXT,'Color',C_REF,'FontName',FONT,'Interpreter','latex', ...
+    'BackgroundColor','w','Margin',1,'HorizontalAlignment','left');
 
 makeSgtitle('Transfer Functions: Coral Cover to Economic Loss');
 cleanFig(figE3);
 
 
+% =========================================================================
+% FIGURE E4 — Cumulative Discounted NPV + Mitigation
+% =========================================================================
 figE4 = figure('Position',[60 60 1300 560],'Color','w');
-
 
 ax8 = subplot(1,2,1); hold(ax8,'on');
 cum_Dw = cumsum(D_wave_fcst(:)./(1+r_disc).^t_disc)/1e6;
@@ -613,16 +643,16 @@ plot(ax8, fcst_years, cum_Dw+cum_dM, 'o-', ...
 label_idx = marker_idx_from_years(fcst_years, 10);
 for i = label_idx
     text(ax8, fcst_years(i), cum_Dw(i)+cum_dM(i)+max(cum_hi)*0.045, ...
-        sprintf('$%.0fM', cum_Dw(i)+cum_dM(i)), ...
-        'HorizontalAlignment','center','FontSize',FS_TXT,'Color',C_TOTAL,'FontName',FONT);
+        sprintf('\\$%.0fM', cum_Dw(i)+cum_dM(i)), ...
+        'HorizontalAlignment','center','FontSize',FS_TXT,'Color',C_TOTAL, ...
+        'FontName',FONT,'Interpreter','latex');
 end
-styleAx(ax8,'Year','Cumulative NPV ($M)', ...
-    sprintf('Cumulative Discounted Losses  (r = %.0f%%)',r_disc*100));
+styleAx(ax8,'Year','Cumulative NPV (\$M)', ...
+    sprintf('Cumulative Discounted Losses  ($r = %.0f\\%%$)', r_disc*100));
 legend(ax8, [ac(1),ac(2)], {'Wave NPV','Tourism NPV'},'Location','northwest');
 xlim(ax8, [fcst_years(1)-0.5, fcst_years(end)+0.5]);
 ylim(ax8, [0, max(cum_hi)*1.25]);
 xticks(ax8, xticks_vec);
-
 
 ax9 = subplot(1,2,2); hold(ax9,'on');
 bar_clrs = [C_TOTAL; C_WAVE; C_CORAL];
@@ -634,95 +664,106 @@ for sc = 1:3
 end
 for sc = 1:3
     text(ax9, sc, npv_scenarios(sc) + max(npv_scenarios)*0.03, ...
-        sprintf('$%.1fM', npv_scenarios(sc)), ...
-        'HorizontalAlignment','center','FontSize',FS_TXT,'Color','k','FontName',FONT);
+        sprintf('\\$%.1fM', npv_scenarios(sc)), ...
+        'HorizontalAlignment','center','FontSize',FS_TXT,'Color','k', ...
+        'FontName',FONT,'Interpreter','latex');
     if sc > 1 && npv_saved(sc) > 0.5
         text(ax9, sc, npv_scenarios(sc)/2, ...
-            sprintf('Save $%.1fM', npv_saved(sc)), ...
+            sprintf('Save \\$%.1fM', npv_saved(sc)), ...
             'HorizontalAlignment','center','FontSize',FS_TXT-1, ...
-            'Color','w','FontWeight','bold','FontName',FONT);
+            'Color','w','FontWeight','bold','FontName',FONT,'Interpreter','latex');
     end
 end
 yline(ax9, npv_scenarios(1),'--','Color',C_REF,'LineWidth',LW_REF);
 set(ax9,'XTick',1:3,'XTickLabel',scenario_names, ...
     'XTickLabelRotation',8,'TickDir','out', ...
     'Box','off','XColor','k','YColor','k', ...
-    'FontName',FONT,'FontSize',FS_AX,'Color','w');
-ylabel(ax9,'NPV of Total Losses ($M)', ...
-    'Color','k','FontName',FONT,'FontSize',FS_LBL);
-title(ax9,'Mitigation Scenarios — NPV Comparison', ...
-    'Color','k','FontName',FONT,'FontSize',12,'FontWeight','normal');
+    'FontName',FONT,'FontSize',FS_AX,'Color','w', ...
+    'TickLabelInterpreter','latex');
+ylabel(ax9,'NPV of Total Losses (\$M)', ...
+    'Color','k','FontName',FONT,'FontSize',FS_LBL,'Interpreter','latex');
+title(ax9,'Mitigation Scenarios --- NPV Comparison', ...
+    'Color','k','FontName',FONT,'FontSize',12,'FontWeight','normal','Interpreter','latex');
 ylim(ax9, [0, max(npv_scenarios)*1.22]);
 
-makeSgtitle('NPV of Reef-Degradation Losses + Mitigation Value');
+makeSgtitle('NPV of Reef-Degradation Losses $+$ Mitigation Value');
 cleanFig(figE4);
 
 
+% =========================================================================
+% FIGURE E5 — Dual-Axis Cover vs Total Loss
+% =========================================================================
 figE5 = figure('Position',[60 60 1100 500],'Color','w');
 ax10 = axes(figE5); hold(ax10,'on');
 
+left_ylim_hi  = max([A0, obs_cover, fcst_hi]) * 1.20;
+right_ylim_hi = max(L_hi/1e6) * 1.20;
+
 yyaxis(ax10,'left');
-fill([fcst_years, fliplr(fcst_years)], [fcst_hi, fliplr(fcst_lo)], ...
-    C_CI,'EdgeColor','none','FaceAlpha',1,'HandleVisibility','off');
-plot(ax10, obs_years,  obs_cover,'o-', ...
+hCoverCI = fill([fcst_years, fliplr(fcst_years)], [fcst_hi, fliplr(fcst_lo)], ...
+    C_CI,'EdgeColor','none','FaceAlpha',0.55,'HandleVisibility','off');
+hCoverObs = plot(ax10, obs_years,  obs_cover,'o-', ...
     'Color',C_CORAL,'MarkerFaceColor',C_CORAL, ...
     'LineWidth',LW_MAIN,'MarkerSize',MS,'MarkerIndices',obs_mark_idx, ...
-    'DisplayName','Cover (obs)');
-plot(ax10, fcst_years, fcst_cover,'o--', ...
+    'DisplayName','Cover (observed)');
+hCoverFcst = plot(ax10, fcst_years, fcst_cover,'o--', ...
     'Color',C_FCST,'MarkerFaceColor','w', ...
     'LineWidth',LW_MAIN,'MarkerSize',MS,'MarkerIndices',fcst_mark_idx, ...
     'DisplayName','Cover (forecast)');
-yline(ax10, A0,':','Color',C_REF,'LineWidth',LW_REF);
-text(ax10, obs_years(1)+0.2, A0+0.6, ...
-    sprintf('A_0 = %.1f%%', A0),'FontSize',FS_TXT,'Color',C_REF,'FontName',FONT);
+yline(ax10, A0,':','Color',C_REF,'LineWidth',LW_REF,'HandleVisibility','off');
+text(ax10, obs_years(1)+1.20, A0 + 0.06*left_ylim_hi, ...
+    sprintf('$A_0 = %.1f\\%%$', A0), ...
+    'FontSize',FS_TXT,'Color',C_REF,'FontName',FONT,'Interpreter','latex');
 ax10.YAxis(1).Color = 'k';
-ylabel(ax10,'Hard Coral Cover (%)','Color','k','FontName',FONT,'FontSize',FS_LBL);
-ylim(ax10, [0, A0*1.65]);
+ylabel(ax10,'Hard Coral Cover (\%)','Color','k','FontName',FONT,'FontSize',FS_LBL,'Interpreter','latex');
+ylim(ax10, [0, left_ylim_hi]);
 
 yyaxis(ax10,'right');
-fill([fcst_years, fliplr(fcst_years)], [L_hi/1e6, fliplr(L_lo/1e6)], ...
-    C_CI,'EdgeColor','none','FaceAlpha',1,'HandleVisibility','off');
-plot(ax10, obs_years,  L_obs/1e6,'s-', ...
+hLossCI = fill([fcst_years, fliplr(fcst_years)], [L_hi/1e6, fliplr(L_lo/1e6)], ...
+    C_CI,'EdgeColor','none','FaceAlpha',0.35,'HandleVisibility','off');
+hLossObs = plot(ax10, obs_years,  L_obs/1e6,'s-', ...
     'Color',C_TOTAL,'MarkerFaceColor',C_TOTAL, ...
     'LineWidth',LW_MAIN,'MarkerSize',MS,'MarkerIndices',obs_mark_idx, ...
-    'DisplayName','Total loss (obs)');
-plot(ax10, fcst_years, L_fcst/1e6,'s--', ...
+    'DisplayName','Loss (observed)');
+hLossFcst = plot(ax10, fcst_years, L_fcst/1e6,'s--', ...
     'Color',C_TOTAL,'MarkerFaceColor','w', ...
     'LineWidth',LW_MAIN,'MarkerSize',MS,'MarkerIndices',fcst_mark_idx, ...
-    'DisplayName','Total loss (forecast)');
+    'DisplayName','Loss (forecast)');
 ax10.YAxis(2).Color = 'k';
-ylabel(ax10,'Total Annual Loss ($M)','Color','k','FontName',FONT,'FontSize',FS_LBL);
+ylabel(ax10,'Total Annual Loss (\$M)','Color','k','FontName',FONT,'FontSize',FS_LBL,'Interpreter','latex');
+ylim(ax10, [0, right_ylim_hi]);
 
 xline(ax10, xbreak,':', 'Color',C_REF,'LineWidth',1,'HandleVisibility','off');
-text(ax10, fcst_years(1)+0.1, max(L_hi/1e6)*0.95, '\leftarrow forecast', ...
-    'FontSize',FS_TXT,'Color',C_REF,'FontName',FONT);
-xlabel(ax10,'Year','Color','k','FontName',FONT,'FontSize',FS_LBL);
-lg5 = legend(ax10, ...
-    {'Cover (obs)','Cover (forecast)', ...
-     'Total loss (obs)','Total loss (forecast)'}, ...
+text(ax10, fcst_years(1)+0.8, right_ylim_hi*0.80, '$\leftarrow$ forecast', ...
+    'FontSize',FS_TXT,'Color',C_REF,'FontName',FONT,'Interpreter','latex');
+xlabel(ax10,'Year','Color','k','FontName',FONT,'FontSize',FS_LBL,'Interpreter','latex');
+lg5 = legend(ax10, [hCoverObs, hCoverFcst, hLossObs, hLossFcst], ...
+    {'Cover (observed)','Cover (forecast)', ...
+     'Total loss (observed)','Total loss (forecast)'}, ...
      'Location','northwest');
-lg5.Box = 'off'; lg5.TextColor = 'k';
+lg5.Box = 'off';
+lg5.TextColor = 'k';
 xlim(ax10, xlim_all);
 xticks(ax10, xticks_vec);
 
-
 ax10.Box      = 'off';
-ax10.XGrid    = 'off';  ax10.YGrid = 'off';
+ax10.XGrid    = 'off';
+ax10.YGrid    = 'off';
 ax10.Color    = 'w';
 ax10.XColor   = 'k';
 ax10.TickDir  = 'out';
 ax10.FontName = FONT;
 ax10.FontSize = FS_AX;
 ax10.LineWidth = 0.9;
-
-
-ax10.Position(2) = ax10.Position(2) - 0.04;
-ax10.Position(4) = ax10.Position(4) - 0.04;
+ax10.TickLabelInterpreter = 'latex';
 
 makeSgtitle('Coral Cover Decline and Associated Economic Losses');
 cleanFig(figE5);
 
 
+% =========================================================================
+% CSV outputs
+% =========================================================================
 csv_obs_path  = fullfile(scriptDir, 'reef_economic_loss_observed.csv');
 csv_fcst_path = fullfile(scriptDir, 'reef_economic_loss_forecast.csv');
 csv_npv_path  = fullfile(scriptDir, 'reef_economic_npv.csv');
@@ -754,5 +795,52 @@ fprintf('  %s\n', csv_obs_path);
 fprintf('  %s\n', csv_fcst_path);
 fprintf('  %s\n', csv_npv_path);
 fprintf('  %s\n\n', csv_mit_path);
-fprintf('Figures:  E1 Tourism Model  |  E2 Annual Losses  |  E3 Transfer Functions\n');
-fprintf('          E4 NPV + Mitigation  |  E5 Cover vs Loss\n');
+
+figuresDir = fullfile(repoRoot, 'MATLAB', 'Figures');
+if ~isfolder(figuresDir)
+    mkdir(figuresDir);
+end
+fprintf('Figures output directory: %s\n', figuresDir);
+
+pdf_paths = {
+    fullfile(figuresDir, 'waveenergy_tourism_E1_linear_tourism_model.pdf'), ...
+    fullfile(figuresDir, 'waveenergy_tourism_E2_annual_losses_decomposed_channels.pdf'), ...
+    fullfile(figuresDir, 'waveenergy_tourism_E3_linear_tourism_transfer_function.pdf'), ...
+    fullfile(figuresDir, 'waveenergy_tourism_E4_cumulative_discounted_npv_wave_tourism.pdf'), ...
+    fullfile(figuresDir, 'waveenergy_tourism_E5_dual_axis_cover_vs_total_loss_full_series.pdf')
+};
+fig_handles = [figE1, figE2, figE3, figE4, figE5];
+for i = 1:numel(fig_handles)
+    if ~isgraphics(fig_handles(i), 'figure')
+        warning('Figure handle is invalid or deleted for export: %s', pdf_paths{i});
+        continue;
+    end
+    try
+        exportgraphics(fig_handles(i), pdf_paths{i}, 'ContentType','vector');
+    catch ME
+        try
+            set(fig_handles(i), 'PaperPositionMode','auto');
+            print(fig_handles(i), pdf_paths{i}, '-dpdf', '-painters');
+        catch ME2
+            warning('Failed to export %s (%s | %s)', pdf_paths{i}, ME.message, ME2.message);
+            continue;
+        end
+    end
+    if isfile(pdf_paths{i})
+        fprintf('  [OK] %s\n', pdf_paths{i});
+    else
+        warning('PDF was not written: %s', pdf_paths{i});
+    end
+end
+
+fprintf('Vector PDFs written:\n');
+for i = 1:numel(pdf_paths)
+    fprintf('  %s\n', pdf_paths{i});
+end
+fprintf('\n');
+
+fprintf('Figures saved:  E1 Linear Tourism Model\n');
+fprintf('                E2 Annual Losses by Channel\n');
+fprintf('                E3 Transfer Functions\n');
+fprintf('                E4 Cumulative Discounted NPV (Wave + Tourism)\n');
+fprintf('                E5 Dual-Axis Cover vs Total Loss (Full Series)\n');
