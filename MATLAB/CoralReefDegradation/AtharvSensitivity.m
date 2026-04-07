@@ -232,21 +232,6 @@ for i = 1:3
 end
 
 
-xline(ax1, NPV_base, '--', 'Color',C_REF, 'LineWidth',1.5);
-baseline_dx = ranges(1) * 0.08;
-text(ax1, NPV_base + 2.2*baseline_dx, 3+bht+0.20, sprintf('Baseline\n$%.0fM', NPV_base), ...
-    'HorizontalAlignment','left','FontSize',9,'Color',C_REF,'FontName',FONT, ...
-    'Interpreter','none');
-
-
-text(ax1, max(hi_vals)*0.995, 0.55, ...
-    sprintf('Wave NPV: $%.0fM (%.0f%%)\nTourism NPV: $%.0fM (%.0f%%)', ...
-    NPV_wave_base, 100*NPV_wave_base/NPV_base, ...
-    NPV_tour_base, 100*NPV_tour_base/NPV_base), ...
-    'HorizontalAlignment','right','FontSize',8.5,'Color',C_REF,'FontName',FONT, ...
-    'VerticalAlignment','bottom','Interpreter','none');
-
-
 set(ax1, 'YTick', [1 2 3], ...
          'YTickLabel', {pnames{3}, pnames{2}, pnames{1}}, ...
          'FontSize', 9.5, 'XColor','k','YColor','k', ...
@@ -299,10 +284,11 @@ for ri = 1:3
 end
 
 r_clrs  = [C_TOTAL; C_CORAL; C_WAVE];
-figSA2  = figure('Position',[60 60 1320 560],'Color','w');
+figSA2  = figure('Position',[60 60 1080 420],'Color','w');
 
 
-ax2 = subplot(1,2,1); hold(ax2,'on');
+ax2 = axes(figSA2); hold(ax2,'on');
+set(ax2, 'Units','normalized', 'Position',[0.30 0.14 0.66 0.78]);
 for ri = 1:3
     plot(ax2, fcst_years, cum_npv(ri,:), 'o-', ...
         'Color',r_clrs(ri,:),'MarkerFaceColor',r_clrs(ri,:), ...
@@ -322,44 +308,6 @@ for ri = 1:3
         'FontSize',8,'Color',r_clrs(ri,:),'FontName',FONT,'VerticalAlignment','middle');
 end
 xlim(ax2,[fcst_years(1)-0.5, fcst_years(end)+2.5]);
-
-
-ax3   = subplot(1,2,2); hold(ax3,'on');
-bar_w = 0.22;
-x_grp = 1:3;
-offs  = [-bar_w, 0, bar_w];
-for ri = 1:3
-    bh2 = bar(ax3, x_grp+offs(ri), npv_disc(ri,:), bar_w*0.92);
-    bh2.FaceColor   = r_clrs(ri,:);
-    bh2.FaceAlpha   = 0.80;
-    bh2.EdgeColor   = 'none';
-    bh2.DisplayName = r_labels_lg{ri};
-end
-for ri = 1:3
-    for sc = 1:3
-        text(ax3, x_grp(sc)+offs(ri), npv_disc(ri,sc)+max(npv_disc(:))*0.025, ...
-            sprintf('%.0f', npv_disc(ri,sc)), ...
-            'HorizontalAlignment','center','FontSize',8,'Color','k','FontName',FONT);
-    end
-end
-
-sv_rest = npv_disc(1,1) - npv_disc(1,3);
-annotation(figSA2,'textarrow', ...
-    [0.745 0.745],[0.68 0.52], ...
-    'String', sprintf('Save\n$%.0fM', sv_rest), ...
-    'FontSize',8,'FontName',FONT,'Color',C_OPT, ...
-    'HeadStyle','vback2','HeadWidth',6,'HeadLength',6,'LineWidth',1);
-
-set(ax3,'XTick',x_grp,'XTickLabel',scen_names,'XTickLabelRotation',8, ...
-    'Box','off','TickDir','out','XColor','k','YColor','k','FontName',FONT,'FontSize',11);
-ylabel(ax3,'NPV (\$M)','FontSize',11,'Color','k','FontName',FONT);
-title(ax3,'NPV by Discount Rate and Mitigation Scenario', ...
-    'FontSize',12,'FontWeight','normal','Color','k','FontName',FONT);
-legend(ax3,'Location','northeast');
-ylim(ax3,[0, max(npv_disc(:))*1.22]);
-
-sg2 = sgtitle('Sensitivity to Social Discount Rate (OMB A-4: 1.5\%, 3\%, 7\%)');
-sg2.FontName = FONT; sg2.FontSize = 13; sg2.FontWeight = 'normal'; sg2.Color = 'k';
 sa_cleanFig(figSA2);
 
 
