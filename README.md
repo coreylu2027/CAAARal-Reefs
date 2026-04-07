@@ -1,8 +1,8 @@
 # CAAARal-Reefs
 
-This repository contains the code, notebooks, data products, and figures for the CAAARal Reefs project.
+This repository contains the code, notebooks, data files, and figures for the 2025-26 Modeling the Future Challenge project titled "A Risk Analysis of the Effects of Coral Reef Degradation in Tropical Climates" by Team #23914 (CAAARal Reefs).
 
-For MTFC math modelling competition judges, the main point to know is that this project uses Git LFS for large files, but it also includes Google Drive download scripts in case Git LFS is unavailable or incomplete on your machine. Python dependencies for the notebooks and download scripts are listed in `requirements.txt`.
+For Modeling the Future Challenge (MTFC) judges, the most important thing to know is that this project utilizes Git LFS (large file storage), but it also includes Google Drive download scripts as a fallback, in case Git LFS is unavailable or incomplete on your machine. Python dependencies for the notebooks and download scripts are listed in `requirements.txt` and can be installed accordingly.
 
 ## Repository layout
 
@@ -119,6 +119,27 @@ After the data is present and `requirements.txt` has been installed, judges can 
 - MATLAB code in `MATLAB/`
 - generated artifacts in `outputs/` and `MATLAB/Figures/`
 
+## MATLAB workflow (current)
+
+Core MATLAB modeling scripts live in `MATLAB/CoralReefDegradation/`.
+
+1. Run `benthicCoverARIMA.m`
+2. Run `WaveEnergy_Tourism.m`
+3. Run `AtharvSensitivity.m`
+
+These scripts are wired to share CSV inputs and outputs directly from `MATLAB/CoralReefDegradation/`.
+
+Key generated files include:
+
+- `MATLAB/CoralReefDegradation/benthic_cover_forecast.csv`
+- `MATLAB/CoralReefDegradation/benthic_cover_observed_annual.csv`
+- `MATLAB/CoralReefDegradation/reef_economic_loss_forecast.csv`
+- `MATLAB/CoralReefDegradation/reef_economic_loss_observed.csv`
+- `MATLAB/CoralReefDegradation/reef_economic_mitigation.csv`
+- `MATLAB/CoralReefDegradation/reef_economic_npv.csv`
+
+Generated MATLAB figures are saved to `MATLAB/Figures/`.
+
 ## Judge workflow summary
 
 For MTFC judges, the simplest workflow is:
@@ -131,3 +152,6 @@ python3 scripts/download_necessary_data.py
 ```
 
 If Git LFS is installed and working, you may use `git lfs pull` instead of the Google Drive step.
+
+Best,
+CAAARal Reefs

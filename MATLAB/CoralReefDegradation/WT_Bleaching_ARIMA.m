@@ -1,32 +1,30 @@
-%% Combined SST and Coral Bleaching Analysis
+
 
 clc;
 clear;
 close all;
 
-%% 1. LOAD BOTH DATASETS
 
-% Load SST data
 sst_file = '../../data/raw/NOAA/sst.mnmean.v4.nc';
 lon = ncread(sst_file, 'lon');
 lat = ncread(sst_file, 'lat');
 time = ncread(sst_file, 'time');
 sst = ncread(sst_file, 'sst');
 
-% Convert time and clean
+
 base_date = datetime(1800,1,1);
 sst_dates = base_date + days(time);
 sst(sst < -100) = NaN;
 
-% Extract tropical SST
+
 tropical_idx = lat >= -23.5 & lat <= 23.5;
 sst_tropical = sst(:, tropical_idx, :);
 tropical_sst_ts = double(squeeze(mean(sst_tropical, [1 2], 'omitnan')));
 
-% Load bleaching data
+
 bleach_data = readtable('../../data/raw/NOAA/global_bleaching_environmental.csv');
 
-% Filter and create dates
+
 bleach_data.Date_Full = datetime(bleach_data.Date_Year, bleach_data.Date_Month, bleach_data.Date_Day);
 valid_idx = ~isnan(bleach_data.Percent_Bleaching) & ~isnat(bleach_data.Date_Full);
 bleach_data = bleach_data(valid_idx, :);
@@ -36,9 +34,7 @@ fprintf('SST data: %d months from %s to %s\n', length(sst_dates), ...
 fprintf('Bleaching data: %d observations from %s to %s\n', height(bleach_data), ...
     datestr(min(bleach_data.Date_Full)), datestr(max(bleach_data.Date_Full)));
 
-%% 2. ALIGN SST TO BLEACHING OBSERVATION DATES
 
-% For each bleaching observation, find the SST in the same month
 bleach_data.SST_Match = NaN(height(bleach_data), 1);
 
 fprintf('\nMatching bleaching observations to SST...\n');
@@ -46,20 +42,19 @@ fprintf('\nMatching bleaching observations to SST...\n');
 for i = 1:height(bleach_data)
     obs_date = bleach_data.Date_Full(i);
     
-    % Find closest SST month
+
     [~, idx] = min(abs(sst_dates - obs_date));
     
-    % Only match if within same month
+
     if year(sst_dates(idx)) == year(obs_date) && month(sst_dates(idx)) == month(obs_date)
         bleach_data.SST_Match(i) = tropical_sst_ts(idx);
     end
 end
 
-% Remove rows without SST match
+
 bleach_with_sst = bleach_data(~isnan(bleach_data.SST_Match), :);
 fprintf('Matched %d bleaching observations to SST\n', height(bleach_with_sst));
 
-%% 3. VISUALIZE SST-BLEACHING RELATIONSHIP
 
 figure('Position', [100, 100, 1400, 500]);
 
@@ -73,7 +68,7 @@ ylabel('Bleaching (%)');
 title('SST vs Bleaching (colored by year)');
 grid on;
 
-% Add regression line
+
 p = polyfit(bleach_with_sst.SST_Match, bleach_with_sst.Percent_Bleaching, 1);
 hold on;
 sst_range = linspace(min(bleach_with_sst.SST_Match), max(bleach_with_sst.SST_Match), 100);
@@ -82,7 +77,7 @@ text(min(sst_range)+1, max(bleach_with_sst.Percent_Bleaching)-10, ...
     sprintf('Slope: %.2f%%/°C', p(1)), 'FontSize', 10);
 
 subplot(1,2,2);
-% Bin SST and show mean bleaching
+
 sst_bins = 24:0.5:30;
 bleach_means = zeros(length(sst_bins)-1, 1);
 bleach_stds = zeros(length(sst_bins)-1, 1);
@@ -108,7 +103,6 @@ ylabel('Mean Bleaching (%)');
 title('Average Bleaching by SST Bin');
 grid on;
 
-%% 4. CLASSIFY BY REGION
 
 fprintf('\nClassifying observations by region...\n');
 
@@ -133,13 +127,12 @@ for i = 1:height(bleach_with_sst)
 end
 bleach_with_sst.Region = region;
 
-% Count by region
+
 region_counts = groupsummary(bleach_with_sst, 'Region');
 for i = 1:height(region_counts)
     fprintf('  %s: %d observations\n', region_counts.Region{i}, region_counts.GroupCount(i));
 end
 
-%% 5. CREATE QUARTERLY TIME SERIES
 
 min_date = min(bleach_with_sst.Date_Full);
 max_date = max(bleach_with_sst.Date_Full);
@@ -147,7 +140,6 @@ quarterly_dates = (dateshift(min_date, 'start', 'quarter'):calmonths(3):dateshif
 
 fprintf('\nQuarterly aggregation: %d quarters\n', length(quarterly_dates));
 
-%% 6. REGRESSION-BASED ARIMA MODELING
 
 forecast_quarters = 8;
 results = struct();
@@ -162,7 +154,7 @@ for r = 1:length(major_regions)
     
     fprintf('\n=== %s ===\n', region_name);
     
-    % Filter region data
+
     region_data = bleach_with_sst(bleach_with_sst.Region == region_name, :);
     
     if height(region_data) < 20
@@ -170,7 +162,7 @@ for r = 1:length(major_regions)
         continue;
     end
     
-    % Aggregate to quarterly
+
     bleach_q = NaN(length(quarterly_dates), 1);
     sst_q = NaN(length(quarterly_dates), 1);
     
@@ -186,7 +178,7 @@ for r = 1:length(major_regions)
         end
     end
     
-    % Remove NaN values
+
     valid = ~isnan(bleach_q) & ~isnan(sst_q);
     y = double(bleach_q(valid));
     X = double(sst_q(valid));
@@ -202,21 +194,21 @@ for r = 1:length(major_regions)
     
     plot_idx = plot_idx + 1;
     
-    % Regression with ARIMA errors using regARIMA
+
     try
-        % Model 1: Regression + AR(1)
+
         mdl1 = regARIMA('ARLags', 1);
         fit1 = estimate(mdl1, y, 'X', X, 'Display', 'off');
         
-        % Model 2: Regression + MA(1)
+
         mdl2 = regARIMA('MALags', 1);
         fit2 = estimate(mdl2, y, 'X', X, 'Display', 'off');
         
-        % Model 3: Regression + ARMA(1,1)
+
         mdl3 = regARIMA('ARLags', 1, 'MALags', 1);
         fit3 = estimate(mdl3, y, 'X', X, 'Display', 'off');
         
-        % Compare AIC
+
         aic1 = summarize(fit1).AIC;
         aic2 = summarize(fit2).AIC;
         aic3 = summarize(fit3).AIC;
@@ -229,31 +221,31 @@ for r = 1:length(major_regions)
         fprintf('  Best model: %s (AIC=%.2f)\n', model_names{best_idx}, min([aic1, aic2, aic3]));
         fprintf('  SST coefficient: %.2f\n', best_fit.Beta);
         
-        % Forecast future SST (linear trend)
+
         t_sst = (1:length(X))';
         p_sst = polyfit(t_sst, X, 1);
         future_t = (length(X)+1):(length(X)+forecast_quarters);
         X_forecast = polyval(p_sst, future_t');
         
-        % Forecast bleaching
+
         yF = forecast(best_fit, forecast_quarters, 'Y0', y, 'X0', X, 'XF', X_forecast);
         
-        % Estimate confidence intervals from residuals
+
         res = infer(best_fit, y, 'X', X);
         res_std = std(double(res));
         yF_upper = yF + 1.96*res_std;
         yF_lower = yF - 1.96*res_std;
         
-        % Bound to [0, 100]
+
         yF(yF < 0) = 0; yF(yF > 100) = 100;
         yF_lower(yF_lower < 0) = 0;
         yF_upper(yF_upper > 100) = 100;
         
-        % Future dates
+
         last_date = dates_valid(end);
         future_dates = last_date + calmonths(3*(1:forecast_quarters))';
         
-        % Store results
+
         results.(field_name).model = best_fit;
         results.(field_name).model_name = model_names{best_idx};
         results.(field_name).forecast_bleach = yF;
@@ -267,7 +259,7 @@ for r = 1:length(major_regions)
         results.(field_name).sst_coef = best_fit.Beta;
         results.(field_name).sst_trend = p_sst(1);
         
-        % Plot
+
         subplot(2, 2, plot_idx);
         yyaxis left
         hold on;
@@ -297,7 +289,6 @@ end
 
 sgtitle('Regression-ARIMA Forecasts: SST vs Bleaching (2 years ahead)');
 
-%% 7. SUMMARY TABLE
 
 fprintf('\n--- FORECAST SUMMARY ---\n');
 fprintf('%-20s %-15s %10s %12s %12s %14s\n', ...
@@ -319,7 +310,6 @@ for r = 1:length(major_regions)
     end
 end
 
-%% 8. EXPORT FORECASTS
 
 fprintf('\n--- EXPORTING FORECASTS ---\n');
 
@@ -342,7 +332,6 @@ for r = 1:length(major_regions)
     end
 end
 
-%% 9. RESIDUAL DIAGNOSTICS
 
 figure('Position', [100, 100, 1600, 800]);
 
@@ -357,7 +346,7 @@ for r = 1:length(major_regions)
     
     subplot_idx = subplot_idx + 1;
     
-    % Get residuals
+
     y = results.(field_name).historical_bleach;
     X = results.(field_name).historical_sst;
     res = double(infer(results.(field_name).model, y, 'X', X));

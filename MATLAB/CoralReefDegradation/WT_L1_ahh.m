@@ -1,12 +1,12 @@
 clc;
 clear;
 close all;
-% parameters
+
 data = readtable("../../data/processed/NOAA/Surface_Data_Temperature_Cleaned.csv");
 data = data(2:end, :);
 data.Properties.VariableNames = {'Index', 'Time', 'Latitude', 'Longitude', 'Temperature', 'Error', 'Anomaly'};
 
-% Converting string to number
+
 if iscell(data.Temperature)
     data.Temperature = str2double(data.Temperature);
     data.Latitude = str2double(data.Latitude);
@@ -25,7 +25,7 @@ fprintf('Std deviation: %.2f °C\n', std(data.Temperature));
 fprintf('Latitude range: %.2f to %.2f\n', min(data.Latitude), max(data.Latitude));
 fprintf('Longitude range: %.2f to %.2f\n', min(data.Longitude), max(data.Longitude));
 
-%% Figure 1: Temperature Distribution
+
 figure('Position', [100, 100, 1200, 400]);
 
 subplot(1,3,1);
@@ -51,7 +51,7 @@ grid on;
 
 sgtitle('Statistical Distributions');
 
-%% Figure 2: Spatial Distribution (2D map)
+
 figure('Position', [100, 100, 1000, 600]);
 scatter(data.Longitude, data.Latitude, 20, data.Temperature, 'filled');
 colorbar;
@@ -63,7 +63,6 @@ grid on;
 axis equal;
 
 
-%% Figures 3: temp vs lat. and long.
 figure('Position', [100, 100, 1200, 400]);
 
 subplot(1,2,1);
@@ -84,9 +83,7 @@ ylabel('Temperature (°C)');
 title('Temperature vs Longitude');
 grid on;
 
-%% 4. spatial analysis by latitude bins
 
-% Bin data by latitude
 lat_bins = -40:5:40;
 lat_centers = lat_bins(1:end-1) + 2.5;
 temp_by_lat = nan(size(lat_centers));
@@ -98,7 +95,7 @@ for i = 1:length(lat_centers)
     end
 end
 
-% Remove NaN values for plotting
+
 valid_idx = ~isnan(temp_by_lat);
 
 figure('Position', [100, 100, 800, 500]);
@@ -108,22 +105,21 @@ ylabel('Mean Temperature (°C)');
 title('Mean Temperature by Latitude Band');
 grid on;
 
-%% 5. ARIMA modeling
-% For spatial data, we'll create a "transect" along a specific latitude or longitude
+
 fprintf('\nARIMA MODELING\n');
 
-% Example: Create time series along a specific latitude (around -39.875°)
+
 target_lat = -39.875;
 transect_data = data(abs(data.Latitude - target_lat) < 0.01, :);
 transect_data = sortrows(transect_data, 'Longitude');
 
-% Extract temperature series
+
 y = transect_data.Temperature;
 n = length(y);
 
 fprintf('Created transect with %d points at latitude %.2f°\n', n, target_lat);
 
-% Plot the transect
+
 figure('Position', [100, 100, 1200, 800]);
 subplot(3,1,1);
 plot(transect_data.Longitude, y, 'o-', 'LineWidth', 1.5);
@@ -132,7 +128,7 @@ ylabel('Temperature (°C)');
 title(sprintf('Temperature Transect at Latitude %.2f°', target_lat));
 grid on;
 
-% Check ACF and PACF
+
 subplot(3,1,2);
 autocorr(y);
 title('Autocorrelation Function (ACF)');
