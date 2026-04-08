@@ -2,6 +2,10 @@
 
 This repository contains the code, notebooks, data files, and figures for the 2025-26 Modeling the Future Challenge project titled "A Risk Analysis of the Effects of Coral Reef Degradation in Tropical Climates" by Team #23914 (CAAARal Reefs).
 
+## Project Description
+This project presents a comprehensive quantitative risk analysis of coral reef degradation, highlighting its severe ecological, economic, and societal impacts. It shows that reefs, which support over half a billion people, are rapidly declining due to rising ocean temperatures, acidification, and increased storm activity, leading to losses in fisheries, tourism, coastal protection, and biodiversity. Using over 1.6 million data points and multiple integrated models, including stochastic fishery dynamics, SARIMA-based coral cover forecasts, economic loss models, and a pharmaceutical value framework, the study projects substantial future damages such as billions in annual economic losses and high probabilities of fishery collapse by 2100. It also identifies irreversible losses in pharmaceutical potential due to species extinction as a uniquely critical risk. The project concludes by proposing a multi-faceted policy framework that combines restoration, behavioral incentives, insurance mechanisms, and biodiversity preservation to mitigate these risks and protect both ecosystems and global economies before critical thresholds are reached.
+
+# Information for Judges
 For Modeling the Future Challenge (MTFC) judges, the most important thing to know is that this project utilizes Git LFS (large file storage), but it also includes Google Drive download scripts as a fallback, in case Git LFS is unavailable or incomplete on your machine. Python dependencies for the notebooks and download scripts are listed in `requirements.txt` and can be installed accordingly.
 
 ## Repository layout
